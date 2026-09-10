@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SchoolTable — Backend Flow Chart</title>
+<style>
+:root{--navy:#173e72;--blue:#eaf2ff;--blue-line:#8fb2df;--orange:#fff2db;--orange-line:#dfa448;--green:#e7f6ef;--green-line:#68ae8b;--red:#fff0ee;--red-line:#d9786d;--ink:#18283e;--muted:#5b687a;--bg:#f3f6fa;--line:#d7e0eb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Leelawadee UI",Tahoma,sans-serif;line-height:1.55}.page{max-width:1500px;margin:auto;padding:34px 28px 60px}h1{font-size:30px;margin:0 0 6px;color:var(--navy)}.subtitle{color:var(--muted);margin-bottom:20px}.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}.tag{padding:6px 12px;border-radius:999px;border:1px solid;font-size:13px;font-weight:700}.front{background:var(--blue);border-color:var(--blue-line)}.back{background:var(--orange);border-color:var(--orange-line)}.data{background:var(--green);border-color:var(--green-line)}.error{background:var(--red);border-color:var(--red-line)}
+.board{background:white;border:1px solid var(--line);border-radius:18px;box-shadow:0 6px 24px #173e7210;overflow:hidden}.lanes{display:grid;grid-template-columns:1fr 1.15fr 1fr;background:#edf2f8;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}.lane{padding:13px 16px;text-align:center;font-weight:800;border-right:1px solid var(--line)}.lane:last-child{border:0}.flow{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:0;padding:24px 18px 34px;position:relative}.cell{min-height:66px;padding:8px 12px;position:relative;border-right:1px dashed #d9e1eb}.cell:nth-child(3n){border-right:0}.node{height:100%;min-height:54px;border:1.5px solid;border-radius:12px;padding:10px 13px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:14px;font-weight:650;box-shadow:0 2px 6px #18283e0b}.node.front{border-color:var(--blue-line)}.node.back{border-color:var(--orange-line)}.node.data{border-color:var(--green-line)}.node.error{border-color:var(--red-line);font-weight:600}.node.start{border-radius:999px;background:var(--navy);border-color:var(--navy);color:white}.arrow{text-align:center;color:var(--navy);font-size:23px;height:28px;line-height:28px;grid-column:1/-1}.phase{grid-column:1/-1;margin:18px 0 7px;display:flex;align-items:center;gap:12px;color:var(--navy);font-weight:800}.phase:after{content:"";height:1px;background:var(--line);flex:1}.decision{clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);border-radius:0;padding-left:22px;padding-right:22px}.span2{grid-column:span 2}.note{grid-column:1/-1;background:#f8fafc;border:1px dashed #9fb0c5;border-radius:10px;padding:11px 14px;color:var(--muted);font-size:13px;margin:5px 12px}.callout{margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.callout article{background:white;border:1px solid var(--line);border-radius:14px;padding:17px}.callout h2{font-size:17px;margin:0 0 8px;color:var(--navy)}.callout ul{margin:0;padding-left:20px;font-size:14px}.foot{margin-top:18px;color:var(--muted);font-size:13px}.api{font-family:Consolas,monospace;background:#18283e;color:white;border-radius:5px;padding:1px 5px;font-size:12px}
+@media(max-width:800px){.page{padding:18px 10px}.board{overflow:auto}.lanes,.flow{min-width:850px}.callout{grid-template-columns:1fr}h1{font-size:24px}}
+@media print{body{background:white}.page{max-width:none;padding:8px}.board{box-shadow:none}.lanes{position:static}.callout{break-before:page}}
+</style>
+</head>
+<body><main class="page">
+<h1>SchoolTable — Backend Flow Chart</h1>
+<div class="subtitle">ระบบออนไลน์แบบหนึ่งผู้จัดตารางต่อหนึ่งโรงเรียน · แยกสิ่งที่หน้าบ้านทำอยู่แล้วออกจากงานหลังบ้าน</div>
+<div class="legend"><span class="tag front">หน้าบ้าน</span><span class="tag back">API หลังบ้าน</span><span class="tag data">ฐานข้อมูล</span><span class="tag error">ทางผิดพลาด/ต้องแก้</span></div>
+<section class="board">
+  <div class="lanes"><div class="lane">ผู้ใช้และหน้าบ้าน</div><div class="lane">API หลังบ้าน</div><div class="lane">ฐานข้อมูลและงานระบบ</div></div>
+  <div class="flow">
+    <div class="phase">1. เข้าใช้ระบบและโหลดข้อมูล</div>
+    <div class="cell"><div class="node start">เปิดเว็บไซต์ → เข้าสู่ระบบ</div></div>
+    <div class="cell"><div class="node back"><span><b>POST /auth/login</b><br>ตรวจบัญชีและสมาชิก</span></div></div>
+    <div class="cell"><div class="node data">users · schools<br>subscriptions · sessions</div></div>
+    <div class="arrow">↓</div>
+    <div class="cell"><div class="node front">เปิดหน้าแรกและเลือกภาคเรียน</div></div>
+    <div class="cell"><div class="node back"><span><b>GET /bootstrap</b><br>ใช้ school_id จาก session</span></div></div>
+    <div class="cell"><div class="node data">ส่งข้อมูลพื้นฐาน ตารางล่าสุด<br>และ revision ปัจจุบัน</div></div>
+    <div class="note">ถ้ารหัสผิด สมาชิกหมดอายุ หรือบัญชีถูกระงับ ให้ตอบรหัสข้อผิดพลาดที่หน้าบ้านนำไปอธิบายได้ชัดเจน</div>
+
+    <div class="phase">2. เตรียมข้อมูลและบันทึก</div>
+    <div class="cell"><div class="node front">ตั้งค่าโรงเรียน ห้อง วิชา ครู<br>หลักสูตร ชั้นเรียน และ Import</div></div>
+    <div class="cell"><div class="node back">CRUD API + validation<br>ตรวจ expected revision</div></div>
+    <div class="cell"><div class="node data">บันทึกเฉพาะ school_id<br>เพิ่ม revision และ audit log</div></div>
+    <div class="arrow">↓</div>
+    <div class="cell"><div class="node front">กำหนดครู เงื่อนไข<br>และล็อกคาบ</div></div>
+    <div class="cell"><div class="node decision back">ข้อมูลถูกต้อง<br>และ revision ตรง?</div></div>
+    <div class="cell"><div class="node error">ไม่ผ่าน → field errors<br>หรือ HTTP 409 conflict</div></div>
+    <div class="note">หน้าบ้านแสดง “บันทึกแล้ว” หลัง API ตอบสำเร็จจริงเท่านั้น หาก 409 ให้ผู้ใช้โหลดฉบับล่าสุดก่อนแก้ต่อ</div>
+
+    <div class="phase">3. จัดตาราง</div>
+    <div class="cell"><div class="node front">GET snapshot ล่าสุด<br>ตรวจความพร้อม แล้วรัน scheduler.js</div></div>
+    <div class="cell"><div class="node back">POST /timetables/<br>validate-and-save</div></div>
+    <div class="cell"><div class="node data">ตรวจ revision และกฎ H1–H9<br>ก่อนเก็บสถานะ DRAFT</div></div>
+    <div class="arrow">↓</div>
+    <div class="cell"><div class="node error">จัดไม่ครบ → แสดงคาบค้าง<br>กลับไปแก้ข้อมูล/เงื่อนไข</div></div>
+    <div class="cell"><div class="node back">จัดครบ → ตรวจผลซ้ำ<br>และสร้าง timetable version 1</div></div>
+    <div class="cell"><div class="node data">timetables · entries<br>draft snapshot</div></div>
+
+    <div class="phase">4. แก้ไข ประกาศใช้ และพิมพ์</div>
+    <div class="cell"><div class="node front">ลากคาบ แก้ครู/ห้อง<br>ส่ง expected_version</div></div>
+    <div class="cell"><div class="node back">PATCH /timetables/:id<br>ตรวจ version และกฎบังคับ</div></div>
+    <div class="cell"><div class="node data">บันทึก entries<br>เพิ่ม version + audit log</div></div>
+    <div class="arrow">↓</div>
+    <div class="cell"><div class="node front">กด “ประกาศใช้ตาราง”</div></div>
+    <div class="cell"><div class="node back">POST /timetables/:id/publish<br>ทำงานใน transaction เดียว</div></div>
+    <div class="cell"><div class="node data">ARCHIVE ฉบับเดิม<br>PUBLISH ฉบับใหม่ + immutable snapshot</div></div>
+    <div class="arrow">↓</div>
+    <div class="cell"><div class="node front">ดูตัวอย่างและพิมพ์<br>จาก snapshot ของฉบับนั้น</div></div>
+    <div class="cell"><div class="node back">GET /timetables/:id<br>อ่านตามสิทธิ์โรงเรียน</div></div>
+    <div class="cell"><div class="node data">Backup ออกจากเครื่องหลัก<br>และทดสอบกู้คืนตามรอบ</div></div>
+  </div>
+</section>
+<section class="callout">
+  <article><h2>หน้าบ้านมีอยู่แล้ว</h2><ul><li>ฟอร์มและขั้นตอนเตรียมข้อมูล</li><li>scheduler.js และการตรวจเบื้องต้น</li><li>ลากแก้ ตาราง และตัวอย่างพิมพ์</li></ul></article>
+  <article><h2>หลังบ้านต้องทำ</h2><ul><li>บัญชี สมาชิก และ session</li><li>API ทุกหมวดพร้อม validation</li><li>revision/version, snapshot และ audit log</li></ul></article>
+  <article><h2>กติกาสำคัญ</h2><ul><li>school_id มาจาก session เท่านั้น</li><li>PUBLISHED แก้ย้อนหลังไม่ได้</li><li>ตรวจ H1–H9 ก่อน save/publish</li></ul></article>
+</section>
+<div class="foot">เอกสารรายละเอียด API ตารางข้อมูล และกติกาอยู่ใน BACKEND-FLOWCHART.md</div>
+</main></body></html>
