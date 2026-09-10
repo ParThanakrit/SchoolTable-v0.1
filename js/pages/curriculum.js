@@ -68,13 +68,19 @@
         var d = U.num(ga && ga.order) - U.num(gb && gb.order);
         return d !== 0 ? d : String(a.name).localeCompare(String(b.name), 'th');
       });
+      var curriculumCountByGrade = {};
+      st.curricula.forEach(function (c) {
+        curriculumCountByGrade[c.gradeLevelId] = (curriculumCountByGrade[c.gradeLevelId] || 0) + 1;
+      });
+      var gradesWithCurriculum = grades.filter(function (g) { return !!curriculumCountByGrade[g.id]; });
+      if (gradeFilter && !gradesWithCurriculum.some(function (g) { return g.id === gradeFilter; })) gradeFilter = '';
 
       var gradeSelect = U.elFromHTML(
         '<select class="select curriculum-grade-filter" aria-label="กรองหลักสูตรตามระดับชั้น">' +
         '<option value="">ทุกระดับชั้น</option>' +
-        grades.map(function (g) {
+        gradesWithCurriculum.map(function (g) {
           return '<option value="' + U.esc(g.id) + '"' + (gradeFilter === g.id ? ' selected' : '') +
-            '>' + U.esc(g.name) + '</option>';
+            '>' + U.esc(g.name) + ' (' + U.fmtNum(curriculumCountByGrade[g.id]) + ' ชุด)</option>';
         }).join('') + '</select>'
       );
       gradeSelect.addEventListener('change', function () {
@@ -240,13 +246,14 @@
         M.curriculumItemsOf(st, id).forEach(function (ci) { map[ci.subjectId] = U.num(ci.periodsPerWeek); });
 
         var body = document.createElement('div');
+        body.className = 'curriculum-items-editor';
         body.innerHTML =
           '<div class="callout"><b>' + U.esc(cur.name) + '</b> · ใส่จำนวนคาบต่อสัปดาห์ของแต่ละวิชา ' +
           'เว้นว่างหรือใส่ 0 หมายถึงหลักสูตรชุดนี้ไม่เรียนวิชานั้น</div>' +
           '<div class="cur-total" id="curTotal"></div>' +
           '<div class="table-tools no-print"><input type="search" class="input" id="curSearch" placeholder="ค้นหารายวิชา…" aria-label="ค้นหารายวิชา">' +
           '<label class="checkline"><input type="checkbox" id="onlyPicked"><span>แสดงเฉพาะวิชาที่เลือกไว้แล้ว</span></label></div>' +
-          '<div class="table-wrap" style="max-height:52vh"><table class="data" id="curTable"></table></div>';
+          '<div class="table-wrap curriculum-items-table-wrap"><table class="data curriculum-items-table" id="curTable"></table></div>';
 
         var table = body.querySelector('#curTable');
         var totalHost = body.querySelector('#curTotal');
@@ -288,7 +295,7 @@
                 U.esc(s.code) + ' ' + U.esc(s.name) +
                 (s.doubleMode !== 'NONE' ? ' <span class="badge badge--warning">คาบคู่</span>' : '') +
                 (s.isElective ? ' <span class="badge badge--locked">เลือกเสรี</span>' : '') + '</td>' +
-                '<td class="num"><input type="number" min="0" max="40" class="input" style="width:84px;text-align:right" ' +
+                '<td class="num"><input type="number" min="0" max="40" class="input curriculum-period-input" ' +
                 'data-s="' + s.id + '" value="' + (v || '') + '"></td></tr>';
             });
           });

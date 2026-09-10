@@ -18,8 +18,8 @@
       var tt = M.activeTimetable(st);
 
       UI.pageHeader(root, {
-        title: 'รายงานปัญหา',
-        desc: 'คาบที่จัดไม่ลงพร้อมเหตุผล และข้อเสนอปรับตารางที่ยอมรับได้แต่ควรรู้',
+        title: 'ตรวจและปรับตาราง',
+        desc: 'ดูผลการจัดคาบ ปัญหาที่ต้องแก้ และข้อเสนอที่ช่วยให้ตารางเหมาะสมยิ่งขึ้น',
         actions: tt ? [
           { label: '🖨 พิมพ์รายงาน', onClick: function () { printReport(); } },
           { label: 'ดูตาราง', onClick: function () { app.go('timetable'); } }
@@ -42,34 +42,41 @@
       var counts = {};
       soft.forEach(function (i) { counts[i.ruleCode] = (counts[i.ruleCode] || 0) + 1; });
 
-      /* การ์ดสรุป */
-      var kind = tt.stats.unplaced > 0 ? 'danger' : (soft.length ? 'warning' : 'success');
+      /* การ์ดสถานะหลัก — ข้อเสนอไม่ถือเป็นข้อผิดพลาด จึงไม่ใช้สีเตือนเมื่อจัดครบ */
+      var isComplete = tt.stats.unplaced === 0;
+      var kind = isComplete ? 'success' : 'danger';
       root.appendChild(U.elFromHTML(
-        '<div class="result-card result-card--' + kind + '">' +
-        '<div class="result-card__title">ตารางนี้สมบูรณ์ ' + pct + '%</div>' +
-        '<div class="result-card__line">ต้องจัดทั้งหมด ' + U.fmtNum(tt.stats.totalRequired) +
-        ' คาบ · จัดได้ ' + U.fmtNum(tt.stats.placed) + ' คาบ · ค้าง ' + U.fmtNum(tt.stats.unplaced) + ' คาบ</div>' +
-        '<div class="result-card__line">ข้อเสนอปรับตาราง ' + U.fmtNum(soft.length) + ' จุด · ' +
-        'ตาราง "' + U.esc(tt.name) + '" สถานะ ' + M.statusLabel(tt.status) + '</div></div>'
+        '<section class="issues-status issues-status--' + kind + '">' +
+        '<div class="issues-status__main"><span class="issues-status__icon" aria-hidden="true">' +
+        global.ST.ux.icon(isComplete ? 'check' : 'warning') + '</span><div class="issues-status__copy">' +
+        '<span class="issues-status__eyebrow">ผลการจัดตาราง</span>' +
+        '<strong>' + (isComplete ? 'จัดครบทุกคาบ พร้อมใช้งาน' : 'ยังมีคาบที่ต้องแก้ไข') + '</strong>' +
+        '<span>ตาราง “' + U.esc(tt.name) + '” · สถานะ ' + M.statusLabel(tt.status) + '</span></div>' +
+        '<div class="issues-status__score"><strong>' + pct + '%</strong><span>ความสำเร็จ</span></div></div>' +
+        '<div class="issues-status__metrics">' +
+        '<div><span>คาบทั้งหมด</span><b>' + U.fmtNum(tt.stats.totalRequired) + '</b></div>' +
+        '<div class="is-success"><span>จัดลงตารางแล้ว</span><b>' + U.fmtNum(tt.stats.placed) + '</b></div>' +
+        '<div class="' + (tt.stats.unplaced ? 'is-danger' : 'is-success') + '"><span>คาบที่ยังค้าง</span><b>' + U.fmtNum(tt.stats.unplaced) + '</b></div>' +
+        '<div class="is-warning"><span>ข้อเสนอปรับเพิ่ม</span><b>' + U.fmtNum(soft.length) + '</b></div></div></section>'
       ));
 
       /* กราฟภาพรวม */
       var chartCodes = Object.keys(SCH.SOFT_LABEL);
       var maxCount = Math.max.apply(null, [1].concat(chartCodes.map(function (code) { return counts[code] || 0; })));
       var issueChart = U.elFromHTML('<div class="issue-chart-grid">' +
-        '<section class="card issue-donut-card"><div class="issue-chart-head"><div><b>ภาพรวมการจัดคาบ</b>' +
-        '<span>สัดส่วนคาบที่จัดลงตารางแล้ว</span></div></div>' +
+        '<section class="card issue-donut-card"><div class="issue-chart-head"><div><b>สถานะคาบเรียน</b>' +
+        '<span>ดูจำนวนคาบที่จัดสำเร็จและยังค้าง</span></div></div>' +
         '<div class="issue-donut-layout"><div class="issue-donut" style="--issue-pct:' + pct + '%">' +
         '<div><strong>' + pct + '%</strong><span>จัดสำเร็จ</span></div></div>' +
         '<div class="issue-chart-legend"><div><i class="is-placed"></i><span>จัดได้</span><b>' + U.fmtNum(tt.stats.placed) + '</b></div>' +
         '<div><i class="is-unplaced"></i><span>ค้าง</span><b>' + U.fmtNum(tt.stats.unplaced) + '</b></div>' +
         '<div><i class="is-soft"></i><span>ควรปรับ</span><b>' + U.fmtNum(soft.length) + '</b></div></div></div></section>' +
         '<section class="card issue-bars-card"><div class="issue-chart-head"><div><b>ข้อเสนอแยกตามประเภท</b>' +
-        '<span>แท่งยาวหมายถึงพบประเด็นประเภทนั้นมาก</span></div><strong>' + U.fmtNum(soft.length) + ' จุด</strong></div>' +
+        '<span>เลือกแท่งเพื่อกรองดูรายละเอียดด้านล่าง</span></div><strong>' + U.fmtNum(soft.length) + ' จุด</strong></div>' +
         '<div class="issue-bars">' + chartCodes.map(function (code) {
           var count = counts[code] || 0;
           var width = Math.round((count / maxCount) * 1000) / 10;
-          return '<button type="button" data-chart-rule="' + code + '" title="กรองรายการประเภทนี้">' +
+          return '<button type="button" class="' + (filterRule === code ? 'is-active' : '') + '" data-chart-rule="' + code + '" title="กรองรายการประเภทนี้">' +
             '<span class="issue-bar-label">' + U.esc(SCH.SOFT_LABEL[code]) + '</span>' +
             '<span class="issue-bar-track"><i style="width:' + width + '%"></i></span><b>' + U.fmtNum(count) + '</b></button>';
         }).join('') + '</div></section></div>');
@@ -82,7 +89,7 @@
       if (!unplaced.length && !soft.length) {
         root.appendChild(UI.emptyState({
           icon: '✅', title: 'ตารางนี้สมบูรณ์ ไม่มีคาบค้างและไม่ละเมิดกฎใด',
-          desc: 'จัดครบทุกคาบ ไม่มีครู ชั้นเรียน หรือห้องชนกัน และไม่ไม่ตรงเงื่อนไขที่ต้องการแม้แต่จุดเดียว',
+          desc: 'จัดครบทุกคาบ ไม่มีครู ชั้นเรียน หรือห้องชนกัน และตรงตามเงื่อนไขที่ต้องการทุกข้อ',
           actions: [
             { label: 'พิมพ์ตาราง', onClick: function () { app.go('print'); } },
             { label: 'ดูตาราง', className: 'btn', onClick: function () { app.go('timetable'); } }
@@ -92,12 +99,13 @@
       }
 
       /* ---------- ส่วนที่ 1 คาบที่จัดไม่ลง ---------- */
-      var card1 = U.elFromHTML('<div class="card"><div class="card__title">คาบที่จัดไม่ลง ' +
+      var card1 = U.elFromHTML('<div class="card issues-unplaced-card' + (!unplaced.length ? ' is-clear' : '') + '"><div class="card__title">คาบที่จัดไม่ลง ' +
         '<span class="badge badge--danger">' + U.fmtNum(unplaced.length) + ' รายการ</span></div>' +
         '<div class="card__desc">ต้องแก้ที่ข้อมูลต้นทาง แล้วกดจัดตารางใหม่</div><div id="unplacedHost"></div></div>');
       var host1 = card1.querySelector('#unplacedHost');
       if (!unplaced.length) {
-        host1.innerHTML = '<p class="text-success">ไม่มีคาบที่จัดไม่ลง ระบบจัดได้ครบทุกคาบ</p>';
+        host1.innerHTML = '<div class="issues-clear-state"><span aria-hidden="true">' + global.ST.ux.icon('check') + '</span>' +
+          '<div><b>ไม่มีคาบที่จัดไม่ลง</b><small>ระบบจัดครบทุกคาบ ไม่ต้องแก้ข้อมูลต้นทาง</small></div></div>';
       } else {
         unplaced.forEach(function (i) {
           var ctxInfo = i.context || {};
@@ -119,15 +127,15 @@
 
       /* ---------- ส่วนที่ 2 ข้อเสนอปรับตาราง ---------- */
       var chips = Object.keys(SCH.SOFT_LABEL).map(function (code) {
-        return '<label class="chip' + (filterRule === code ? ' is-on' : '') + '" data-rule="' + code + '">' +
-          U.esc(SCH.SOFT_LABEL[code]) + ' (' + U.fmtNum(counts[code] || 0) + ')</label>';
+        return '<button type="button" class="chip' + (filterRule === code ? ' is-on' : '') + '" data-rule="' + code + '">' +
+          U.esc(SCH.SOFT_LABEL[code]) + ' <span>' + U.fmtNum(counts[code] || 0) + '</span></button>';
       }).join('');
 
-      var card2 = U.elFromHTML('<div class="card"><div class="card__title">ข้อเสนอปรับตาราง ' +
+      var card2 = U.elFromHTML('<div class="card issues-suggestions-card"><div class="card__title">ข้อเสนอปรับตาราง ' +
         '<span class="badge badge--warning">' + U.fmtNum(soft.length) + ' จุด</span></div>' +
-        '<div class="card__desc">ยอมรับได้ ตารางยังใช้งานได้จริง แต่ควรรู้ไว้ และปรับเองได้ด้วยการลากคาบ</div>' +
-        '<div class="chipset mb-8 no-print"><label class="chip' + (filterRule === '' ? ' is-on' : '') +
-        '" data-rule="">ทั้งหมด (' + U.fmtNum(soft.length) + ')</label>' + chips + '</div>' +
+        '<div class="card__desc">รายการเหล่านี้ไม่ใช่ข้อผิดพลาด ตารางยังใช้งานได้ และสามารถปรับเองด้วยการลากคาบ</div>' +
+        '<div class="chipset issues-filter-chips mb-8 no-print"><button type="button" class="chip' + (filterRule === '' ? ' is-on' : '') +
+        '" data-rule="">ทั้งหมด <span>' + U.fmtNum(soft.length) + '</span></button>' + chips + '</div>' +
         '<div id="softHost"></div></div>');
       var host2 = card2.querySelector('#softHost');
       U.on(card2, 'click', '.chip', function (ev, chip) {

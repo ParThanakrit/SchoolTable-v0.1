@@ -28,7 +28,12 @@
     layers: 'M12 3 2.5 8 12 13l9.5-5zM2.5 12 12 17l9.5-5M2.5 16 12 21l9.5-5',
     clipboard: 'M8 5H7a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-1M9 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9zM8.5 13l2 2 4-4',
     sliders: 'M3 7h11M20 7h1M18 7a2 2 0 1 1-4 0 2 2 0 1 1 4 0M3 12h3M10 12h11M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0M3 17h7M15 17h6M13 17a2 2 0 1 1-4 0 2 2 0 1 1 4 0',
-    save: 'M5 4h11l3 3v11.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5V5.5A1.5 1.5 0 0 1 5.5 4zM8 4v4.5h7V4M7.5 20v-5.5h9V20'
+    save: 'M5 4h11l3 3v11.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5V5.5A1.5 1.5 0 0 1 5.5 4zM8 4v4.5h7V4M7.5 20v-5.5h9V20',
+    sun: 'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42',
+    route: 'M4 6h11M12 3l3 3-3 3M20 18H9M12 15l-3 3 3 3M4 6v12',
+    link: 'M4 7h6v10H4zM14 7h6v10h-6zM10 12h4',
+    balance: 'M12 3v18M7 21h10M5 6h14M6 6 3 12h6L6 6M18 6l-3 6h6l-3-6',
+    search: 'm21 21-4.35-4.35M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0'
   };
   function icon(name) {
     return '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (paths[name] || paths.grid) + '"></path></svg>';

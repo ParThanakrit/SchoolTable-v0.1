@@ -223,11 +223,17 @@
 
       var card = U.elFromHTML('<div class="card"></div>');
       var filterPanel = U.elFromHTML('<section class="section-filter-panel no-print" aria-label="ค้นหาและกรองชั้นเรียน">' +
-        '<div class="section-filter-panel__head"><div><b>ค้นหาและกรองชั้นเรียน</b>' +
-        '<div class="small muted">แสดงเฉพาะระดับชั้นที่มีห้องเรียนอยู่ในระบบ</div></div></div></section>');
-      filterPanel.appendChild(filterBar);
+        '<div class="section-filter-panel__head"><span class="section-filter-panel__icon" aria-hidden="true">' + global.ST.ux.icon('sliders') + '</span>' +
+        '<div><b>ค้นหาและกรองชั้นเรียน</b><div class="small muted">เลือกชั้นที่ต้องการ หรือค้นหาจากชื่อห้อง ห้องประจำ และหลักสูตร</div></div>' +
+        '<span class="section-filter-panel__total"><b>' + U.fmtNum(st.classSections.length) + '</b> ห้องเรียน</span></div>' +
+        '<div class="section-filter-panel__controls"><div class="section-filter-field section-filter-field--grades">' +
+        '<span class="section-filter-field__label">ระดับชั้น</span><div data-filter-chips></div></div>' +
+        '<div class="section-filter-field section-filter-field--search"><span class="section-filter-field__label">ค้นหาชั้นเรียน</span>' +
+        '<div class="section-filter-search"><span aria-hidden="true">' + global.ST.ux.icon('search') + '</span><div data-filter-search></div></div>' +
+        '</div></div></section>');
+      filterPanel.querySelector('[data-filter-chips]').appendChild(filterBar);
       var tableTools = table.querySelector('.table-tools');
-      if (tableTools) filterPanel.appendChild(tableTools);
+      if (tableTools) filterPanel.querySelector('[data-filter-search]').appendChild(tableTools);
       card.appendChild(filterPanel);
       card.appendChild(table);
       root.appendChild(card);

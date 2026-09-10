@@ -96,10 +96,10 @@
 
       var optCard = U.elFromHTML('<div class="card generation-options"><div class="card__title">วิธีจัดตาราง</div>' +
         '<div class="card__desc">คาบที่ล็อกไว้จะอยู่ตำแหน่งเดิมเสมอ</div>' +
-        '<label class="checkline"><input type="radio" name="generationMode" id="optManual"' + (!options.regenerateAll ? ' checked' : '') + '>' +
-        '<span><b>จัดใหม่ โดยเก็บคาบที่ฉันปรับไว้</b><span class="teacher-picker__meta">จัดเฉพาะส่วนที่เหลือ คาบที่เคยลากปรับและคาบล็อกจะอยู่เหมือนเดิม</span></span></label>' +
-        '<label class="checkline"><input type="radio" name="generationMode" id="optAll"' + (options.regenerateAll ? ' checked' : '') + '>' +
-        '<span><b>จัดใหม่ทั้งหมด โดยเก็บเฉพาะคาบล็อก</b><span class="teacher-picker__meta">คาบที่เคยลากปรับเองจะถูกจัดตำแหน่งใหม่ด้วย</span></span></label></div>');
+        '<label class="checkline generation-option"><input type="radio" name="generationMode" id="optManual"' + (!options.regenerateAll ? ' checked' : '') + '>' +
+        '<span class="generation-option__copy"><b>จัดใหม่ โดยเก็บคาบที่ฉันปรับไว้</b><span class="generation-option__desc">จัดเฉพาะส่วนที่เหลือ โดยคงคาบที่เคยลากปรับและคาบล็อกไว้ตำแหน่งเดิม</span></span></label>' +
+        '<label class="checkline generation-option"><input type="radio" name="generationMode" id="optAll"' + (options.regenerateAll ? ' checked' : '') + '>' +
+        '<span class="generation-option__copy"><b>จัดใหม่ทั้งหมด โดยเก็บเฉพาะคาบล็อก</b><span class="generation-option__desc">จัดตำแหน่งคาบใหม่ทั้งตาราง รวมถึงคาบที่เคยลากปรับเอง</span></span></label></div>');
       root.appendChild(optCard);
       optCard.querySelector('#optManual').addEventListener('change', function () { options.keepManual = true; options.regenerateAll = false; });
       optCard.querySelector('#optAll').addEventListener('change', function () { options.regenerateAll = true; options.keepManual = false; });

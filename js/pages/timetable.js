@@ -113,6 +113,35 @@
       }
       ensureTargets(st);
 
+      /* คำนวณคาบที่ยังขาดจากจำนวนคาบตามการมอบหมาย เทียบกับคาบที่อยู่ในตารางจริง */
+      function pendingAssignments() {
+        var placedByAssignment = {};
+        tt.entries.forEach(function (e) {
+          placedByAssignment[e.assignmentId] = (placedByAssignment[e.assignmentId] || 0) + 1;
+        });
+        return st.assignments.map(function (a) {
+          var remaining = Math.max(0, U.num(a.periodsPerWeek) - (placedByAssignment[a.id] || 0));
+          return {
+            assignment: a,
+            remaining: remaining,
+            subject: U.byId(st.subjects, a.subjectId),
+            section: U.byId(st.classSections, a.classSectionId),
+            teacher: U.byId(st.teachers, a.teacherId)
+          };
+        }).filter(function (item) {
+          return item.remaining > 0 && item.assignment.teacherId && item.subject && item.section;
+        });
+      }
+
+      function pendingForCurrentView() {
+        return pendingAssignments().filter(function (item) {
+          var a = item.assignment;
+          if (view.mode === 'section') return a.classSectionId === view.targetId;
+          if (view.mode === 'teacher') return a.teacherId === view.targetId || a.coTeacherId === view.targetId;
+          return true; /* มุมมองห้อง: เลือกจากคาบค้างทั้งโรงเรียน แล้วตรวจว่าห้องนี้รองรับหรือไม่ตอนวาง */
+        });
+      }
+
       /* ---------- แถบควบคุม ---------- */
       var targetLabel = view.mode === 'teacher' ? 'เลือกครู' : view.mode === 'room' ? 'เลือกห้องสถานที่' : 'เลือกชั้นเรียน';
       var controls = U.elFromHTML('<div class="card no-print timetable-control-card"><div class="tt-control-grid">' +
@@ -194,6 +223,10 @@
       var gridCard = U.elFromHTML('<div class="card"><div id="gridHost"></div></div>');
       root.appendChild(gridCard);
       renderGrid(gridCard.querySelector('#gridHost'));
+
+      /* ---------- ถาดคาบที่ยังไม่ได้จัด ---------- */
+      var pendingPool = renderPendingPool();
+      if (pendingPool) root.appendChild(pendingPool);
 
       /* ---------- คำอธิบายสัญลักษณ์ ---------- */
       root.appendChild(U.elFromHTML('<div class="card small">' +
@@ -319,6 +352,94 @@
           .sort(function (a, b) { return a.periodNo - b.periodNo; });
       }
 
+      function renderPendingPool() {
+        var pending = pendingForCurrentView();
+        if (!pending.length) return null;
+        pending.sort(function (a, b) {
+          var sectionOrder = String(a.section.name).localeCompare(String(b.section.name), 'th', { numeric: true });
+          return sectionOrder || String(a.subject.name).localeCompare(String(b.subject.name), 'th');
+        });
+        var count = pending.reduce(function (sum, item) { return sum + item.remaining; }, 0);
+        var modeName = view.mode === 'section' ? 'ชั้นเรียนนี้' : view.mode === 'teacher' ? 'ครูคนนี้' : 'คาบค้างทั้งโรงเรียน';
+        var groupById = U.indexById(st.subjectGroups);
+        var panel = U.elFromHTML('<section class="card tt-pending-panel no-print" aria-label="คาบที่ยังไม่ได้จัด">' +
+          '<div class="tt-pending-head"><span class="tt-pending-head__icon" aria-hidden="true">' + global.ST.ux.icon('download') + '</span>' +
+          '<div><div class="card__title">คาบที่ยังไม่ได้จัด <span class="badge badge--warning">' + U.fmtNum(count) + ' คาบ</span></div>' +
+          '<div class="card__desc">' + (editable ? 'ลากการ์ดขึ้นไปวางในช่องว่าง หรือคลิกการ์ดแล้วคลิกช่องที่ต้องการ' : 'ตารางฉบับนี้แก้ไขไม่ได้ ต้องสร้างร่างใหม่ก่อน') +
+          ' · แสดงเฉพาะ' + modeName + '</div></div></div><div class="tt-pending-list"></div></section>');
+        var list = panel.querySelector('.tt-pending-list');
+        list.innerHTML = pending.map(function (item) {
+          var subject = item.subject, a = item.assignment;
+          var group = groupById[subject.subjectGroupId];
+          var color = group && group.color ? group.color : '#2563eb';
+          var pairSize = item.remaining >= 2 && (subject.doubleMode === 'STRICT' || subject.doubleMode === 'PREFERRED') ? 2 : 1;
+          var canPlace = editable && !subject.isElective;
+          var disabledReason = !editable ? 'ต้องสร้างตารางฉบับร่างก่อน' :
+            (subject.isElective ? 'วิชาเลือกเสรีต้องจัดพร้อมกันทั้งระดับชั้น ให้ใช้การจัดตารางอัตโนมัติ' : '');
+          return '<button type="button" class="tt-pending-item' + (canPlace ? '' : ' is-disabled') + '"' +
+            ' data-pending="' + a.id + '" data-size="' + pairSize + '" data-disabled-reason="' + U.esc(disabledReason) + '"' +
+            (canPlace ? ' draggable="true"' : ' aria-disabled="true"') + ' style="--subject-color:' + U.esc(color) + '">' +
+            '<span class="tt-pending-item__grip" aria-hidden="true">⠿</span><span class="tt-pending-item__copy">' +
+            '<strong>' + U.esc(subject.name) + '</strong><span>' + U.esc(item.section.name) + ' · ' + U.esc(item.teacher ? item.teacher.name : '-') + '</span></span>' +
+            '<span class="tt-pending-item__badges"><b>เหลือ ' + U.fmtNum(item.remaining) + '</b>' +
+            (pairSize === 2 ? '<em>ลากครั้งละ 2 คาบ</em>' : '') + (subject.isElective ? '<em>จัดพร้อมกันทั้งระดับ</em>' : '') + '</span></button>';
+        }).join('');
+
+        function clearPendingDrag(host) {
+          U.qsa('.tt-pending-item', panel).forEach(function (item) { item.classList.remove('is-selected', 'is-dragging'); });
+          if (host) clearDropTargets(host);
+        }
+
+        function beginPending(card) {
+          var reason = card.dataset.disabledReason;
+          if (reason) {
+            U.explainDialog({ title: 'ยังวางคาบนี้เองไม่ได้', cause: reason, fix: editable ? 'กดจัดตารางอัตโนมัติใหม่เพื่อให้วิชาเลือกลงพร้อมกันทุกห้อง' : 'สร้างร่างใหม่จากตารางนี้ แล้วจึงลากคาบลงช่องว่าง' });
+            return false;
+          }
+          var a = U.byId(st.assignments, card.dataset.pending);
+          if (!a) return false;
+          var size = Math.max(1, Number(card.dataset.size) || 1);
+          var pairGroupId = size === 2 ? U.uid('pg') : '';
+          var moving = [];
+          for (var i = 0; i < size; i++) {
+            moving.push({ id: U.uid('en'), assignmentId: a.id, day: '', periodNo: 0, roomId: '', isLocked: false, isManual: true, pairGroupId: pairGroupId });
+          }
+          var ctx = SCH.buildContext(st);
+          tt.entries.forEach(function (e) { SCH.occupy(ctx, e); });
+          if (view.mode === 'room' && ctx.assignmentById[a.id]) {
+            ctx.assignmentById[a.id] = Object.assign({}, ctx.assignmentById[a.id], { roomId: view.targetId });
+          }
+          var host = root.querySelector('#gridHost');
+          clearPendingDrag(host);
+          drag = { entryId: moving[0].id, moving: moving, prep: { ctx: ctx, ignore: {}, moving: moving }, fromPending: true, pendingCard: card };
+          card.classList.add('is-selected');
+          paintDropTargets(host);
+          return true;
+        }
+
+        U.qsa('.tt-pending-item', panel).forEach(function (card) {
+          card.addEventListener('dragstart', function (ev) {
+            if (!beginPending(card)) { ev.preventDefault(); return; }
+            card.classList.add('is-dragging');
+            try { ev.dataTransfer.setData('text/plain', card.dataset.pending); } catch (e) { /* บางเบราว์เซอร์ */ }
+            ev.dataTransfer.effectAllowed = 'move';
+          });
+          card.addEventListener('dragend', function () {
+            clearPendingDrag(root.querySelector('#gridHost'));
+            if (drag && drag.pendingCard === card) drag = null;
+          });
+          card.addEventListener('click', function () {
+            if (drag && drag.pendingCard === card) {
+              clearPendingDrag(root.querySelector('#gridHost'));
+              drag = null;
+              return;
+            }
+            if (beginPending(card)) U.toast('เลือกคาบแล้ว · คลิกช่องว่างในตารางเพื่อวาง หรือคลิกการ์ดซ้ำเพื่อยกเลิก', 'info', 6000);
+          });
+        });
+        return panel;
+      }
+
       function bindDragAndDrop(host) {
         kbd = null;                              /* กริดถูกวาดใหม่ ยกเลิกการย้ายด้วยคีย์บอร์ดที่ค้างอยู่ */
         U.qsa('.tt-entry[draggable="true"]', host).forEach(function (el) {
@@ -400,8 +521,17 @@
         });
       }
 
+      function moveWarningTitle(message) {
+        if (/ข้ามอาคาร/.test(message)) return 'ต้องเดินข้ามอาคาร';
+        if (/ข้ามชั้น/.test(message)) return 'ต้องเดินข้ามชั้น';
+        if (/วิชาหลัก|ช่วงเช้า|ช่วงบ่าย/.test(message)) return 'วิชาหลักจะถูกย้ายไปช่วงบ่าย';
+        if (/คาบคู่|แยก/.test(message)) return 'คาบคู่จะไม่อยู่ติดกัน';
+        return 'ไม่ตรงเงื่อนไขที่กำหนด';
+      }
+
       function doDrop(day, periodNo) {
         var moving = drag.moving;
+        var fromPending = !!drag.fromPending;
         var res = SCH.checkMoveTarget(drag.prep, day, periodNo);
         if (!res.ok) {
           U.explainDialog({
@@ -421,22 +551,23 @@
             e.roomId = res.roomId;
             e.isManual = true;
           });
-          tt.issues = tt.issues.filter(function (i) { return i.type === 'UNPLACED'; })
-            .concat(SCH.collectSoftIssues(st, tt.entries));
-          tt.stats.softViolations = tt.issues.filter(function (i) { return i.type === 'SOFT_VIOLATION'; }).length;
-          tt.updatedAt = new Date().toISOString();
+          if (fromPending) Array.prototype.push.apply(tt.entries, moving);
+          recomputeStats();
           drag = null;
-          app.saveAndRefresh('ย้ายคาบเรียบร้อยแล้ว');
+          app.saveAndRefresh(fromPending ? 'เพิ่มคาบลงตารางเรียบร้อยแล้ว' : 'ย้ายคาบเรียบร้อยแล้ว');
         };
         if (res.warnings && res.warnings.length) {
           U.confirmDialog({
-            title: 'ย้ายได้ แต่จะไม่ตรงเงื่อนไขที่ต้องการ',
-            message: 'การย้ายนี้ทำได้ แต่จะทำให้ตารางละเมิดกฎที่ควรทำให้ได้',
-            detail: '<ul class="list-plain">' + res.warnings.map(function (w) {
-              return '<li>' + U.esc(w) + '</li>';
+            title: 'ตรวจสอบก่อนย้ายคาบ',
+            message: 'ย้ายได้ แต่จะเกิดผลกระทบต่อเงื่อนไข ' + U.fmtNum(res.warnings.length) + ' เรื่อง',
+            detail: '<ul class="move-warning-list">' + res.warnings.map(function (w) {
+              return '<li class="move-warning-item"><span class="move-warning-item__icon" aria-hidden="true">!</span>' +
+                '<div><span class="move-warning-item__label">สาเหตุ</span><strong>' + U.esc(moveWarningTitle(w)) + '</strong>' +
+                '<p>' + U.esc(w) + '</p></div></li>';
             }).join('') + '</ul>',
             hint: 'ถ้ายืนยัน ระบบจะบันทึกจุดนี้ลงในรายงานปัญหาให้ตรวจภายหลัง',
-            confirmText: 'ยืนยันย้าย'
+            cancelText: 'ไม่ย้าย',
+            confirmText: 'ย้ายต่อ'
           }).then(function (ok) {
             if (!ok) { drag = null; app.refresh(); return; }
             applyMove();
@@ -656,10 +787,30 @@
       }
 
       function recomputeStats() {
-        tt.issues = tt.issues.filter(function (i) { return i.type === 'UNPLACED'; })
-          .concat(SCH.collectSoftIssues(st, tt.entries));
+        var oldUnplaced = {};
+        (tt.issues || []).forEach(function (issue) {
+          if (issue.type === 'UNPLACED' && issue.assignmentId) oldUnplaced[issue.assignmentId] = issue;
+        });
+        var pending = pendingAssignments();
+        var hardIssues = pending.map(function (item) {
+          var old = oldUnplaced[item.assignment.id];
+          if (old) {
+            old.remainingPeriods = item.remaining;
+            return old;
+          }
+          return {
+            id: U.uid('is'), type: 'UNPLACED', severity: 'HIGH', assignmentId: item.assignment.id,
+            ruleCode: 'H0', reasonCode: 'R3', remainingPeriods: item.remaining,
+            message: 'คาบนี้ยังไม่ได้อยู่ในตารางหลังจากการปรับด้วยตนเอง',
+            suggestion: 'ลากการ์ดคาบที่ยังไม่ได้จัดไปวางในช่องว่าง หรือลองจัดตารางอัตโนมัติใหม่',
+            context: { sectionName: item.section.name, subjectName: item.subject.name, teacherName: item.teacher ? item.teacher.name : '-' }
+          };
+        });
+        tt.issues = hardIssues.concat(SCH.collectSoftIssues(st, tt.entries));
+        tt.stats = tt.stats || {};
+        tt.stats.totalRequired = st.assignments.reduce(function (sum, a) { return sum + (a.teacherId ? U.num(a.periodsPerWeek) : 0); }, 0);
         tt.stats.placed = tt.entries.length;
-        tt.stats.unplaced = Math.max(0, tt.stats.totalRequired - tt.entries.length);
+        tt.stats.unplaced = pending.reduce(function (sum, item) { return sum + item.remaining; }, 0);
         tt.stats.softViolations = tt.issues.filter(function (i) { return i.type === 'SOFT_VIOLATION'; }).length;
         tt.updatedAt = new Date().toISOString();
       }
