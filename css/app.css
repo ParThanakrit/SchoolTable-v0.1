@@ -5,6 +5,8 @@
    ใช้สีเฉพาะจุดที่สื่อความหมาย (สถานะ/คำเตือน/สีประจำวิชา)
    ============================================================ */
 :root {
+  /* ฟอนต์หน้าจอชุดเดียวทั้งระบบ — มีชุดสำรองภาษาไทยเมื่อออฟไลน์ */
+  --font-ui: "IBM Plex Sans Thai", "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
   /* พื้นผิวและเส้น */
   --bg: #eceef2;
   --surface: #ffffff;
@@ -66,7 +68,7 @@ html, body {
   margin: 0; padding: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: "Sarabun", Tahoma, "Leelawadee UI", "Noto Sans Thai", sans-serif;
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.6;
   overflow-x: hidden;

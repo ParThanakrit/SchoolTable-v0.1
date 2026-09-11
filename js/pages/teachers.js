@@ -123,6 +123,7 @@
       function teacherForm(teacher) {
         var busy = teacher ? U.deepClone(teacher.unavailableSlots || []) : [];
         var extra = document.createElement('div');
+        extra.className = 'teacher-unavailable';
 
         function selectedMap() {
           var map = {};
@@ -130,7 +131,9 @@
           return map;
         }
         function paintPicker() {
-          extra.innerHTML = '<div class="field__label">คาบที่ไม่สะดวกสอน (คลิกเพื่อเลือก)</div>';
+          extra.innerHTML = '<div class="teacher-unavailable__head"><span class="teacher-unavailable__number">4</span><div><b>คาบที่ไม่สะดวกสอน</b>' +
+            '<span>แตะช่องเวลาเพื่อทำเครื่องหมาย ระบบจะไม่จัดคาบสอนให้ในช่วงนั้น</span></div>' +
+            '<span class="teacher-unavailable__count">เลือกแล้ว ' + U.fmtNum(busy.length) + ' คาบ</span></div>';
           extra.appendChild(UI.weekPicker(st, {
             selected: selectedMap(),
             labelFor: function () { return 'ไม่สะดวก'; },
@@ -140,7 +143,7 @@
               paintPicker();
             }
           }));
-          extra.appendChild(U.elFromHTML('<div class="field__hint">เช่น ครูมีประชุมประจำทุกวันพุธคาบ 7</div>'));
+          extra.appendChild(U.elFromHTML('<div class="teacher-unavailable__hint">ตัวอย่าง: ครูมีประชุมประจำทุกวันพุธคาบ 7 ให้แตะช่อง “พ · คาบ 7”</div>'));
         }
         paintPicker();
 
@@ -155,22 +158,32 @@
         UI.formModal({
           title: teacher ? 'แก้ไขข้อมูลครู' : 'เพิ่มครู',
           size: 'lg',
+          formClass: 'teacher-form',
           values: values,
           fields: [
-            { name: 'name', label: 'ชื่อ–นามสกุล', required: true },
+            { type: 'section', label: 'ข้อมูลครู', hint: 'ข้อมูลที่ใช้แสดงในตารางและค้นหารายชื่อ', icon: '1' },
+            { name: 'name', label: 'ชื่อ–นามสกุล', required: true, hint: 'กรอกชื่อจริงและนามสกุลให้ครบ' },
             { name: 'shortName', label: 'ชื่อย่อ', hint: 'ใช้แสดงในช่องตารางที่แคบ เว้นว่างได้' },
             {
-              name: 'subjectGroupId', label: 'กลุ่มสาระ', type: 'select',
+              name: 'subjectGroupId', label: 'กลุ่มสาระที่สอน', type: 'select', className: 'teacher-form__wide',
               options: [{ value: '', label: 'ไม่ระบุ' }].concat(st.subjectGroups.map(function (g) {
                 return { value: g.id, label: g.name };
               }))
             },
+            { type: 'section', label: 'วันที่มาสอน', hint: 'เลือกเฉพาะวันที่ครูสามารถเข้าสอนได้', icon: '2' },
             {
-              name: 'availableDays', label: 'วันที่มาสอน', type: 'days',
-              dayOptions: st.periodConfig.days, hint: 'ครูพิเศษอาจมาสอนเพียงบางวัน'
+              name: 'availableDays', label: 'เลือกวัน', type: 'days', className: 'teacher-form__wide teacher-form__days',
+              dayOptions: st.periodConfig.days, hint: 'ปุ่มสีน้ำเงินคือวันที่ครูมาสอน หากเป็นครูพิเศษให้ปิดวันที่ไม่เข้าสอน'
             },
-            { name: 'maxPeriodsPerDay', label: 'คาบสูงสุดต่อวัน', type: 'number', min: 1 },
-            { name: 'maxPeriodsPerWeek', label: 'คาบสูงสุดต่อสัปดาห์', type: 'number', min: 1 }
+            { type: 'section', label: 'ขีดจำกัดภาระงาน', hint: 'ระบบจะไม่จัดสอนเกินจำนวนที่กำหนด', icon: '3' },
+            {
+              name: 'maxPeriodsPerDay', label: 'สอนได้สูงสุดต่อวัน', type: 'number', min: 1,
+              max: M.maxPeriodNo(st), suffix: 'คาบ', hint: 'จำนวนคาบสูงสุดในหนึ่งวัน'
+            },
+            {
+              name: 'maxPeriodsPerWeek', label: 'สอนได้สูงสุดต่อสัปดาห์', type: 'number', min: 1,
+              max: M.slotsPerWeek(st), suffix: 'คาบ', hint: 'รวมคาบสอนทุกวันในหนึ่งสัปดาห์'
+            }
           ],
           onSubmit: function (v) {
             var errors = {};
@@ -178,7 +191,13 @@
             if (!name) errors.name = 'ต้องกรอกชื่อ–นามสกุล';
             if (!v.availableDays || !v.availableDays.length) errors.availableDays = 'ต้องเลือกวันที่มาสอนอย่างน้อย 1 วัน';
             if (U.num(v.maxPeriodsPerDay) < 1) errors.maxPeriodsPerDay = 'ต้องมากกว่า 0';
+            if (U.num(v.maxPeriodsPerDay) > M.maxPeriodNo(st)) {
+              errors.maxPeriodsPerDay = 'มากกว่าจำนวนคาบสูงสุดที่มีในหนึ่งวัน (' + M.maxPeriodNo(st) + ' คาบ)';
+            }
             if (U.num(v.maxPeriodsPerWeek) < 1) errors.maxPeriodsPerWeek = 'ต้องมากกว่า 0';
+            if (U.num(v.maxPeriodsPerWeek) > M.slotsPerWeek(st)) {
+              errors.maxPeriodsPerWeek = 'มากกว่าจำนวนคาบที่มีจริงในหนึ่งสัปดาห์ (' + M.slotsPerWeek(st) + ' คาบ)';
+            }
             if (Object.keys(errors).length) return { ok: false, errors: errors };
 
             var target = teacher || { id: U.uid('tc'), createdAt: new Date().toISOString() };

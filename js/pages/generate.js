@@ -11,6 +11,53 @@
     return M.currentSemesterTimetables(st).filter(function (t) { return t.status === 'DRAFT'; })[0] || null;
   }
 
+  /* แผนภูมิวงกลมความครบของข้อมูล — ให้ครูเห็นภาพรวมว่าลงข้อมูลครบทุกหมวดหรือยัง
+     และขาดหมวดไหน ก่อนกดจัดตาราง (ใช้ conic-gradient ไม่พึ่งไลบรารีภายนอก) */
+  function readinessChart(steps, app) {
+    var total = steps.length;
+    var doneCount = steps.filter(function (s) { return s.done; }).length;
+    var missingCount = total - doneCount;
+    var pct = total ? Math.round((doneCount / total) * 100) : 0;
+    var allDone = missingCount === 0;
+    var node = U.elFromHTML(
+      '<section class="card prep-check prep-check--' + (allDone ? 'ready' : 'missing') + '">' +
+      '<div class="prep-check__head"><div><b>ความครบของข้อมูลก่อนจัด</b>' +
+      '<span>ตรวจว่าลงข้อมูลครบทุกหมวดหรือยัง และยังขาดส่วนไหน ก่อนเริ่มจัดตาราง</span></div>' +
+      '<span class="badge badge--' + (allDone ? 'success' : 'warning') + '">' +
+      (allDone ? '✓ ครบทุกหมวด' : 'ยังขาด ' + U.fmtNum(missingCount) + ' หมวด') + '</span></div>' +
+      '<div class="prep-check__body">' +
+      '<div class="prep-donut" style="--prep-pct:' + pct + '%" role="img" ' +
+      'aria-label="ลงข้อมูลครบ ' + doneCount + ' จาก ' + total + ' หมวด คิดเป็น ' + pct + ' เปอร์เซ็นต์">' +
+      '<div><strong>' + doneCount + '/' + total + '</strong><span>หมวดที่ครบ</span></div></div>' +
+      '<ul class="prep-legend"></ul>' +
+      '</div></section>'
+    );
+    var legend = node.querySelector('.prep-legend');
+    steps.forEach(function (s) {
+      /* หมวดที่คืบหน้าเป็นสัดส่วน (จัดครูผู้สอน · หลักสูตร) แสดงพายชาร์ตย่อยบอก % */
+      var mini = '';
+      if (s.progress && s.progress.total > 0) {
+        var p = s.progress;
+        var mpct = Math.round((p.done / p.total) * 100);
+        mini = '<span class="prep-mini' + (mpct >= 100 ? ' is-full' : '') + '" style="--mini-pct:' + mpct + '%" ' +
+          'role="img" aria-label="' + p.done + ' จาก ' + p.total + ' ' + p.unit + '">' +
+          '<b>' + mpct + '%</b></span>' +
+          '<span class="prep-mini-note">' + U.fmtNum(p.done) + '/' + U.fmtNum(p.total) + '<small> ' + U.esc(p.unit) + '</small></span>';
+      }
+      var li = U.elFromHTML('<li class="prep-legend__item' + (s.done ? ' is-done' : ' is-missing') +
+        (mini ? ' has-mini' : '') + '">' +
+        '<span class="prep-legend__mark" aria-hidden="true">' + (s.done ? '✓' : '!') + '</span>' +
+        '<span class="prep-legend__text"><b>' + U.esc(s.label) + '</b>' +
+        '<small>' + U.esc(s.done ? (s.detail || 'เรียบร้อยแล้ว') : (s.missing || 'ยังทำไม่เสร็จ')) + '</small></span>' +
+        mini +
+        (s.done ? '' : '<button type="button" class="btn btn--sm">ไปแก้</button>') + '</li>');
+      var btn = li.querySelector('button');
+      if (btn) btn.addEventListener('click', function () { app.go(s.page); });
+      legend.appendChild(li);
+    });
+    return node;
+  }
+
   global.ST.pages.generate = {
     render: function (root, params) {
       var app = global.ST.app;
@@ -27,6 +74,9 @@
       });
 
       if (params && params.result) lastResult = params.result;
+
+      /* ---------- แผนภูมิความครบของข้อมูล (ตรวจก่อนจัด) ---------- */
+      root.appendChild(readinessChart(M.readiness(st), app));
 
       /* ---------- ข้อมูลไม่ครบ ---------- */
       if (problems.length) {
@@ -83,15 +133,22 @@
       var totalPeriods = st.assignments.reduce(function (s, a) {
         return s + (a.teacherId ? U.num(a.periodsPerWeek) : 0);
       }, 0);
-      var summary = U.elFromHTML('<div class="card"><div class="card__title">ข้อมูลที่จะใช้จัด</div>' +
-        '<div class="table-wrap"><table class="data"><tbody>' +
-        '<tr><th style="width:230px">ชั้นเรียน</th><td>' + U.fmtNum(st.classSections.length) + ' ห้อง</td></tr>' +
-        '<tr><th>ครู</th><td>' + U.fmtNum(st.teachers.length) + ' คน</td></tr>' +
-        '<tr><th>ห้องสถานที่</th><td>' + U.fmtNum(st.rooms.length) + ' ห้อง ใน ' + st.buildings.length + ' อาคาร</td></tr>' +
-        '<tr><th>รายการมอบหมายสอน</th><td>' + U.fmtNum(st.assignments.length) + ' รายการ</td></tr>' +
-        '<tr><th>คาบที่ต้องจัด</th><td><b>' + U.fmtNum(totalPeriods) + ' คาบต่อสัปดาห์</b></td></tr>' +
-        '<tr><th>คาบที่ล็อกไว้</th><td>' + U.fmtNum(st.lockedSlots.length) + ' รายการ (ระบบจะไม่แตะต้อง)</td></tr>' +
-        '</tbody></table></div></div>');
+      var summary = U.elFromHTML('<div class="card generation-summary"><div class="generation-summary__head"><div>' +
+        '<div class="card__title">ข้อมูลที่จะใช้จัด</div><div class="card__desc">ตรวจข้อมูลต้นทางแล้ว พร้อมนำไปสร้างตารางทั้งโรงเรียน</div></div>' +
+        '<span class="badge badge--success">✓ ข้อมูลพร้อม</span></div><div class="generation-summary__grid">' +
+        '<div class="generation-stat"><span class="generation-stat__icon" aria-hidden="true">' + global.ST.ux.icon('grid') + '</span><div><span>ชั้นเรียน</span>' +
+        '<b>' + U.fmtNum(st.classSections.length) + '<small> ห้อง</small></b></div></div>' +
+        '<div class="generation-stat"><span class="generation-stat__icon" aria-hidden="true">' + global.ST.ux.icon('users') + '</span><div><span>ครูผู้สอน</span>' +
+        '<b>' + U.fmtNum(st.teachers.length) + '<small> คน</small></b></div></div>' +
+        '<div class="generation-stat"><span class="generation-stat__icon" aria-hidden="true">' + global.ST.ux.icon('building') + '</span><div><span>ห้องสถานที่</span>' +
+        '<b>' + U.fmtNum(st.rooms.length) + '<small> ห้อง</small></b><em>' + U.fmtNum(st.buildings.length) + ' อาคาร</em></div></div>' +
+        '<div class="generation-stat"><span class="generation-stat__icon" aria-hidden="true">' + global.ST.ux.icon('clipboard') + '</span><div><span>มอบหมายสอนแล้ว</span>' +
+        '<b>' + U.fmtNum(st.assignments.length) + '<small> รายการ</small></b></div></div>' +
+        '<div class="generation-stat generation-stat--primary"><span class="generation-stat__icon" aria-hidden="true">' + global.ST.ux.icon('calendar') + '</span><div><span>คาบที่ระบบต้องจัด</span>' +
+        '<b>' + U.fmtNum(totalPeriods) + '<small> คาบ/สัปดาห์</small></b><em>งานทั้งหมดที่จะนำไปวางในตาราง</em></div></div>' +
+        '<div class="generation-stat generation-stat--locked"><span class="generation-stat__icon" aria-hidden="true">' + global.ST.ux.icon('lock') + '</span><div><span>คาบที่ล็อกไว้</span>' +
+        '<b>' + U.fmtNum(st.lockedSlots.length) + '<small> รายการ</small></b><em>รักษาตำแหน่งเดิมและจะไม่ถูกย้าย</em></div></div>' +
+        '</div></div>');
       root.appendChild(summary);
 
       var optCard = U.elFromHTML('<div class="card generation-options"><div class="card__title">วิธีจัดตาราง</div>' +
@@ -106,7 +163,8 @@
 
       var runCard = U.elFromHTML('<div class="card" id="runCard"></div>');
       root.appendChild(runCard);
-      var hero = U.elFromHTML('<button type="button" class="btn-hero">⚡ จัดตารางอัตโนมัติ' +
+      var hero = U.elFromHTML('<button type="button" class="btn-hero">' +
+        '<span class="btn-hero__title"><span class="btn-hero__icon" aria-hidden="true">⚡</span><span>จัดตารางอัตโนมัติ</span></span>' +
         '<span class="btn-hero__sub">ข้อมูลพร้อมแล้ว · จะจัด ' + U.fmtNum(totalPeriods) + ' คาบให้ทั้งโรงเรียน</span></button>');
       hero.addEventListener('click', start);
       runCard.appendChild(hero);

@@ -6,19 +6,23 @@
 <title>SchoolTable — ระบบจัดตารางสอนอัตโนมัติ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Kanit:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/app.css?v=0.5.7">
 <link rel="stylesheet" href="css/print.css?v=0.4.4">
-<link rel="stylesheet" href="css/ux.css">
-<link rel="stylesheet" href="css/theme.css?v=0.4.3">
+<link rel="stylesheet" href="css/ux.css?v=0.5.7">
+<link rel="stylesheet" href="css/theme.css?v=0.5.20">
 <script>
-/* กำหนดธีมก่อนวาดหน้า เพื่อไม่ให้จอกะพริบสีขาวตอนเปิดในโหมดมืด */
+/* กำหนดธีมและขนาดหน้าจอก่อนวาดหน้า เพื่อไม่ให้หน้าจอกะพริบตอนเปิด */
 (function () {
   var pref = 'system';
   try { pref = localStorage.getItem('schooltable.theme') || 'system'; } catch (e) { }
   var dark = pref === 'dark' || (pref === 'system' &&
     typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  var uiSize = 'medium';
+  try { uiSize = localStorage.getItem('schooltable.uiSize') || 'medium'; } catch (e2) { }
+  if (['small', 'medium', 'large'].indexOf(uiSize) === -1) uiSize = 'medium';
+  document.documentElement.setAttribute('data-ui-size', uiSize);
 })();
 </script>
 </head>
@@ -48,6 +52,12 @@
       <span id="topStatus"></span>
       <div class="topbar__spacer"></div>
       <div class="topbar__actions">
+        <div class="ui-scale-control" role="group" aria-label="ปรับขนาดหน้าการทำงาน">
+          <span class="ui-scale-control__label"><span class="ui-scale-control__mark" aria-hidden="true">Aa</span><span>ขนาด</span></span>
+          <button type="button" class="ui-scale-btn" data-ui-size="small" aria-pressed="false" title="แสดงผลขนาดเล็ก">เล็ก</button>
+          <button type="button" class="ui-scale-btn" data-ui-size="medium" aria-pressed="true" title="แสดงผลขนาดกลาง">กลาง</button>
+          <button type="button" class="ui-scale-btn" data-ui-size="large" aria-pressed="false" title="แสดงผลขนาดใหญ่">ใหญ่</button>
+        </div>
         <button type="button" class="btn btn--sm theme-toggle" id="btnTheme" aria-label="สลับธีม">
           <span class="theme-toggle__icon" id="themeIcon" aria-hidden="true">🌓</span>
         </button>
@@ -63,31 +73,31 @@
 <div id="printRoot"></div>
 
 <script src="js/util.js"></script>
-<script src="js/store.js?v=0.1.2"></script>
-<script src="js/model.js"></script>
-<script src="js/mockdata.js?v=0.1.2"></script>
+<script src="js/store.js?v=0.5.1"></script>
+<script src="js/model.js?v=0.5.2"></script>
+<script src="js/mockdata.js?v=0.5.1"></script>
 <script src="js/scheduler.js"></script>
 <script src="js/xlsx.js"></script>
 <script src="js/printing.js"></script>
-<script src="js/components.js"></script>
+<script src="js/components.js?v=0.4.8"></script>
 <script src="js/ux.js?v=0.3.3"></script>
-<script src="js/help.js"></script>
+<script src="js/help.js?v=0.5.1"></script>
 <script src="js/pages/overview.js"></script>
 <script src="js/pages/settings.js"></script>
 <script src="js/pages/rooms.js"></script>
-<script src="js/pages/subjects.js"></script>
-<script src="js/pages/teachers.js"></script>
-<script src="js/pages/curriculum.js?v=0.1.18"></script>
-<script src="js/pages/sections.js?v=0.3.3"></script>
-<script src="js/pages/assignments.js?v=0.1.5"></script>
+<script src="js/pages/subjects.js?v=0.5.1"></script>
+<script src="js/pages/teachers.js?v=0.4.8"></script>
+<script src="js/pages/curriculum.js?v=0.5.1"></script>
+<script src="js/pages/sections.js?v=0.5.14"></script>
+<script src="js/pages/assignments.js?v=0.4.9"></script>
 <script src="js/pages/conditions.js?v=0.3.7"></script>
   <script src="js/pages/locks.js?v=0.1.9"></script>
-<script src="js/pages/generate.js?v=0.4.3"></script>
-<script src="js/pages/timetable.js?v=0.4.2"></script>
+<script src="js/pages/generate.js?v=0.5.1"></script>
+<script src="js/pages/timetable.js?v=0.5.12"></script>
 <script src="js/pages/issues.js?v=0.3.4"></script>
 <script src="js/pages/print.js"></script>
 <script src="js/pages/history.js"></script>
-<script src="js/pages/import.js"></script>
-<script src="js/app.js"></script>
+<script src="js/pages/import.js?v=0.5.5"></script>
+<script src="js/app.js?v=0.5.2"></script>
 </body>
 </html>

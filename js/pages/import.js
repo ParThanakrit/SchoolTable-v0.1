@@ -24,12 +24,12 @@
     },
     subjects: {
       label: 'รายวิชา',
-      headers: ['รหัสวิชา', 'ชื่อวิชา', 'ชื่อย่อ', 'กลุ่มสาระ', 'วิชาหลัก', 'คาบคู่', 'วิชาเลือกเสรี', 'คาบพิเศษ'],
+      headers: ['รหัสวิชา', 'ชื่อวิชา', 'ชื่อย่อ', 'กลุ่มสาระ', 'ระดับชั้น', 'วิชาหลัก', 'คาบคู่', 'วิชาเลือกเสรี', 'คาบพิเศษ'],
       sample: [
-        ['ค21101', 'คณิตศาสตร์พื้นฐาน 1', 'คณิต 1', 'คณิตศาสตร์', 'ใช่', 'ไม่ใช่', 'ไม่ใช่', 'ไม่ใช่'],
-        ['ว21281', 'ปฏิบัติการวิทยาศาสตร์ 1', 'ปฏิบัติวิทย์', 'วิทยาศาสตร์และเทคโนโลยี', 'ไม่ใช่', 'ห้ามแยก', 'ไม่ใช่', 'ไม่ใช่']
+        ['ค21101', 'คณิตศาสตร์พื้นฐาน 1', 'คณิต 1', 'คณิตศาสตร์', 'ม.1', 'ใช่', 'ไม่ใช่', 'ไม่ใช่', 'ไม่ใช่'],
+        ['ก20101', 'แนะแนว', 'แนะแนว', 'กิจกรรมพัฒนาผู้เรียน', 'ม.1', 'ไม่ใช่', 'ไม่ใช่', 'ไม่ใช่', 'ใช่']
       ],
-      hint: 'ช่องคาบคู่ให้ใส่ ไม่ใช่ / ห้ามแยก / แยกได้ · ช่องใช่-ไม่ใช่ ให้ใส่คำว่า ใช่ หรือ ไม่ใช่'
+      hint: 'หนึ่งรายวิชาใส่ได้หนึ่งระดับชั้นเท่านั้น · ช่องคาบคู่ให้ใส่ ไม่ใช่ / ห้ามแยก / แยกได้'
     },
     rooms: {
       label: 'ห้องสถานที่',
@@ -86,29 +86,47 @@
         desc: 'นำเข้าข้อมูลตั้งต้นจากไฟล์ Excel (.xlsx) หรือ CSV ที่โรงเรียนมีอยู่แล้ว'
       });
 
+      var kindIcons = { teachers: '👤', subjects: '📘', rooms: '🏫', sections: '👥', curriculum: '📚', assignments: '✓' };
+      var workflow = U.elFromHTML('<div class="import-workflow"></div>');
+      root.appendChild(workflow);
+
       /* ขั้นที่ 1 */
-      var step1 = U.elFromHTML('<div class="card"><div class="card__title">ขั้นที่ 1 · เลือกประเภทข้อมูล</div>' +
-        '<div class="chipset" id="kindChips">' + Object.keys(KINDS).map(function (k) {
-          return '<label class="chip' + (state.kind === k ? ' is-on' : '') + '" data-kind="' + k + '">' +
-            U.esc(KINDS[k].label) + '</label>';
-        }).join('') + '</div></div>');
-      root.appendChild(step1);
-      U.on(step1, 'click', '.chip', function (ev, chip) {
+      var step1 = U.elFromHTML('<section class="card import-step import-step--kinds">' +
+        '<div class="import-step__head"><span class="import-step__number">1</span><div>' +
+        '<div class="import-step__title">เลือกข้อมูลที่ต้องการนำเข้า</div>' +
+        '<div class="import-step__desc">เลือกทีละประเภท ระบบจะเตรียมแม่แบบและตรวจไฟล์ให้ตรงกัน</div></div></div>' +
+        '<div class="import-kind-grid" id="kindChips">' + Object.keys(KINDS).map(function (k) {
+          return '<button type="button" class="import-kind-card' + (state.kind === k ? ' is-on' : '') + '" data-kind="' + k + '" aria-pressed="' +
+            (state.kind === k ? 'true' : 'false') + '"><span class="import-kind-card__icon" aria-hidden="true">' +
+            kindIcons[k] + '</span><span>' + U.esc(KINDS[k].label) + '</span>' +
+            (state.kind === k ? '<small>กำลังเลือก</small>' : '') + '</button>';
+        }).join('') + '</div></section>');
+      workflow.appendChild(step1);
+      U.on(step1, 'click', '.import-kind-card', function (ev, chip) {
         state.kind = chip.dataset.kind;
         state.rows = null; state.parsed = null;
         app.refresh();
       });
 
+      var actionGrid = U.elFromHTML('<div class="import-action-grid"></div>');
+      workflow.appendChild(actionGrid);
+
       /* ขั้นที่ 2 */
-      var step2 = U.elFromHTML('<div class="card"><div class="card__title">ขั้นที่ 2 · ดาวน์โหลดไฟล์ตัวอย่างแล้วกรอกข้อมูล</div>' +
-        '<div class="card__desc">' + U.esc(kind.hint) + '</div>' +
-        '<div class="table-wrap mb-8"><table class="data"><thead><tr>' +
+      var step2 = U.elFromHTML('<section class="card import-step"><div class="import-step__head"><span class="import-step__number">2</span><div>' +
+        '<div class="import-step__title">เตรียมไฟล์ ' + U.esc(kind.label) + '</div>' +
+        '<div class="import-step__desc">ดาวน์โหลดแม่แบบ กรอกข้อมูล แล้วบันทึกโดยไม่เปลี่ยนชื่อคอลัมน์</div></div></div>' +
+        '<div class="import-tip"><span aria-hidden="true">💡</span><span>' + U.esc(kind.hint) + '</span></div>' +
+        '<div class="table-wrap import-sample-table"><table class="data"><thead><tr>' +
         kind.headers.map(function (h) { return '<th>' + U.esc(h) + '</th>'; }).join('') +
         '</tr></thead><tbody>' + kind.sample.map(function (r) {
           return '<tr>' + r.map(function (c) { return '<td>' + U.esc(c) + '</td>'; }).join('') + '</tr>';
         }).join('') + '</tbody></table></div>' +
-        '<button type="button" class="btn btn--primary" id="btnTemplate">⬇ ดาวน์โหลดไฟล์ตัวอย่าง (.csv)</button></div>');
-      root.appendChild(step2);
+        '<button type="button" class="btn btn--primary import-template-btn" id="btnTemplate" aria-label="ดาวน์โหลดไฟล์ตัวอย่างสำหรับกรอกข้อมูล ' + U.esc(kind.label) + '">' +
+        '<span class="import-template-btn__icon" aria-hidden="true">↓</span>' +
+        '<span class="import-template-btn__copy"><b>ดาวน์โหลดไฟล์ตัวอย่าง</b>' +
+        '<small>กรอกข้อมูล' + U.esc(kind.label) + 'ตามคอลัมน์ แล้วอัปโหลดกลับเข้าระบบ</small></span>' +
+        '<span class="import-template-btn__format"><b>CSV</b><small>เปิดด้วย Excel ได้</small></span></button></section>');
+      actionGrid.appendChild(step2);
       step2.querySelector('#btnTemplate').addEventListener('click', function () {
         var rows = [kind.headers].concat(kind.sample);
         U.downloadText('ตัวอย่างนำเข้า-' + kind.label + '.csv', X.toCsv(rows));
@@ -116,28 +134,41 @@
       });
 
       /* ขั้นที่ 3 */
-      var step3 = U.elFromHTML('<div class="card"><div class="card__title">ขั้นที่ 3 · อัปโหลดไฟล์กลับเข้าระบบ</div>' +
-        '<div class="flex gap-8 items-center flex-wrap">' +
-        '<input type="file" class="input" id="impFile" accept=".csv,.xlsx" style="max-width:340px">' +
-        '<label class="chip' + (state.autoCreate ? ' is-on' : '') + '" id="autoChip"><input type="checkbox"' +
-        (state.autoCreate ? ' checked' : '') + '>สร้างข้อมูลอ้างอิงที่ยังไม่มีให้อัตโนมัติ</label>' +
-        '<select class="select" id="dupMode" style="max-width:260px">' +
+      var step3 = U.elFromHTML('<section class="card import-step import-step--upload"><div class="import-step__head"><span class="import-step__number">3</span><div>' +
+        '<div class="import-step__title">นำไฟล์กลับเข้าระบบ</div>' +
+        '<div class="import-step__desc">รองรับไฟล์ .CSV และ .XLSX ระบบจะตรวจสอบก่อนบันทึกจริง</div></div></div>' +
+        '<input type="file" class="sr-only" id="impFile" accept=".csv,.xlsx">' +
+        '<label class="import-dropzone" id="impDrop" for="impFile" tabindex="0">' +
+        '<span class="import-dropzone__icon" aria-hidden="true">↑</span><strong>ลากไฟล์มาวางที่นี่</strong>' +
+        '<span>หรือคลิกเพื่อเลือกไฟล์จากเครื่อง</span><small id="impFileName">ขนาดไฟล์แนะนำไม่เกิน 10 MB</small></label>' +
+        '<div class="import-settings"><label class="import-setting" id="autoChip"><input type="checkbox"' +
+        (state.autoCreate ? ' checked' : '') + '><span><b>สร้างข้อมูลอ้างอิงให้อัตโนมัติ</b>' +
+        '<small>เช่น กลุ่มสาระหรือระดับชั้นที่ยังไม่มีในระบบ</small></span></label>' +
+        '<label class="import-setting import-setting--select duplicate-mode duplicate-mode--' + state.onDuplicate + '"><span><b>เมื่อพบข้อมูลซ้ำ</b><small>เลือกว่าให้จัดการรายการเดิมอย่างไร</small></span>' +
+        '<div class="duplicate-mode__control"><select class="select duplicate-mode__select" id="dupMode" aria-describedby="dupModeHelp">' +
         '<option value="update"' + (state.onDuplicate === 'update' ? ' selected' : '') + '>ข้อมูลซ้ำ: เขียนทับของเดิม</option>' +
         '<option value="skip"' + (state.onDuplicate === 'skip' ? ' selected' : '') + '>ข้อมูลซ้ำ: ข้ามไป</option>' +
-        '</select></div>' +
-        '<div class="progress mt-16" id="impProgress" style="display:none"><div class="progress__fill" id="impFill"></div></div>' +
-        '<div class="progress__text" id="impText"></div></div>');
-      root.appendChild(step3);
+        '</select><span class="duplicate-mode__help" id="dupModeHelp"><i aria-hidden="true"></i><span>' +
+        (state.onDuplicate === 'update' ? 'อัปเดตรายการเดิมด้วยข้อมูลจากไฟล์' : 'เก็บรายการเดิมไว้และไม่นำเข้ารายการซ้ำ') +
+        '</span></span></div></label></div>' +
+        '<div class="progress import-progress" id="impProgress" style="display:none"><div class="progress__fill" id="impFill"></div></div>' +
+        '<div class="progress__text" id="impText" aria-live="polite"></div></section>');
+      actionGrid.appendChild(step3);
       step3.querySelector('#autoChip').addEventListener('change', function (ev) {
         state.autoCreate = ev.target.checked;
-        step3.querySelector('#autoChip').classList.toggle('is-on', state.autoCreate);
       });
       step3.querySelector('#dupMode').addEventListener('change', function (ev) {
         state.onDuplicate = ev.target.value;
+        var setting = ev.target.closest('.duplicate-mode');
+        setting.classList.toggle('duplicate-mode--update', state.onDuplicate === 'update');
+        setting.classList.toggle('duplicate-mode--skip', state.onDuplicate === 'skip');
+        setting.querySelector('.duplicate-mode__help span:last-child').textContent = state.onDuplicate === 'update'
+          ? 'อัปเดตรายการเดิมด้วยข้อมูลจากไฟล์'
+          : 'เก็บรายการเดิมไว้และไม่นำเข้ารายการซ้ำ';
       });
 
       var resultHost = document.createElement('div');
-      root.appendChild(resultHost);
+      workflow.appendChild(resultHost);
 
       if (state.lastSummary) {
         var sm = state.lastSummary;
@@ -151,10 +182,43 @@
         state.lastSummary = null;
       }
 
-      step3.querySelector('#impFile').addEventListener('change', function (ev) {
+      var fileInput = step3.querySelector('#impFile');
+      var dropzone = step3.querySelector('#impDrop');
+      fileInput.addEventListener('change', function (ev) {
         var file = ev.target.files && ev.target.files[0];
+        handleFile(file);
+        ev.target.value = '';
+      });
+      dropzone.addEventListener('dragover', function (ev) {
+        ev.preventDefault();
+        dropzone.classList.add('is-dragging');
+      });
+      dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('is-dragging'); });
+      dropzone.addEventListener('drop', function (ev) {
+        ev.preventDefault();
+        dropzone.classList.remove('is-dragging');
+        handleFile(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]);
+      });
+      dropzone.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          fileInput.click();
+        }
+      });
+
+      function handleFile(file) {
         if (!file) return;
+        if (!/\.(csv|xlsx)$/i.test(file.name)) {
+          U.explainDialog({
+            title: 'ประเภทไฟล์ไม่รองรับ',
+            cause: 'ไฟล์ "' + file.name + '" ไม่ใช่ไฟล์ CSV หรือ Excel (.xlsx)',
+            fix: 'ให้เลือกไฟล์นามสกุล .csv หรือ .xlsx หรือดาวน์โหลดแม่แบบจากขั้นที่ 2'
+          });
+          return;
+        }
         var isXlsx = /\.xlsx$/i.test(file.name);
+        step3.querySelector('#impFileName').textContent = file.name;
+        dropzone.classList.add('has-file');
         step3.querySelector('#impProgress').style.display = '';
         step3.querySelector('#impFill').style.width = '30%';
         step3.querySelector('#impText').textContent = 'กำลังอ่านไฟล์ ' + file.name;
@@ -178,8 +242,7 @@
           step3.querySelector('#impText').textContent = 'อ่านไฟล์แล้ว ' + U.fmtNum(rows.length) + ' แถว';
           validateAndShow(rows);
         });
-        ev.target.value = '';
-      });
+      }
 
       function validateAndShow(rows) {
         resultHost.innerHTML = '';
@@ -216,9 +279,11 @@
         var okRows = checked.filter(function (c) { return c.ok; });
         var badRows = checked.filter(function (c) { return !c.ok; });
 
-        var card = U.elFromHTML('<div class="card"><div class="card__title">ขั้นที่ 4 · ตรวจสอบก่อนบันทึกจริง</div>' +
-          '<div class="card__desc">อ่านได้ ' + U.fmtNum(checked.length) + ' แถว · ถูกต้อง ' +
-          U.fmtNum(okRows.length) + ' แถว · มีปัญหา ' + U.fmtNum(badRows.length) + ' แถว</div>' +
+        var card = U.elFromHTML('<section class="card import-step import-review"><div class="import-step__head"><span class="import-step__number">4</span><div>' +
+          '<div class="import-step__title">ตรวจสอบก่อนบันทึกจริง</div><div class="import-step__desc">แก้แถวที่มีปัญหาในไฟล์ แล้วอัปโหลดใหม่ได้โดยข้อมูลยังไม่ถูกบันทึก</div></div></div>' +
+          '<div class="import-review__summary"><span>อ่านได้ <b>' + U.fmtNum(checked.length) + '</b> แถว</span>' +
+          '<span class="is-ok">✓ ถูกต้อง <b>' + U.fmtNum(okRows.length) + '</b></span>' +
+          '<span class="is-bad">! มีปัญหา <b>' + U.fmtNum(badRows.length) + '</b></span></div>' +
           '<div class="table-wrap"><table class="data"><thead><tr><th class="num">แถวที่</th>' +
           kind.headers.map(function (h) { return '<th>' + U.esc(h) + '</th>'; }).join('') +
           '<th>ผลการตรวจ</th></tr></thead><tbody>' +
@@ -230,9 +295,9 @@
                 : '<span class="badge badge--danger">' + U.esc(c.error) + '</span>') + '</td></tr>';
           }).join('') + '</tbody></table></div>' +
           (checked.length > 200 ? '<div class="small muted mt-8">แสดง 200 แถวแรก</div>' : '') +
-          '<div class="flex gap-8 mt-16"><button type="button" class="btn btn--primary" id="btnCommit">' +
+          '<div class="import-review__actions"><button type="button" class="btn btn--primary" id="btnCommit">' +
           'ยืนยันนำเข้า ' + U.fmtNum(okRows.length) + ' แถวที่ถูกต้อง</button>' +
-          '<button type="button" class="btn" id="btnCancelImport">ยกเลิก</button></div></div>');
+          '<button type="button" class="btn" id="btnCancelImport">ยกเลิก</button></div></section>');
         resultHost.appendChild(card);
 
         card.querySelector('#btnCancelImport').addEventListener('click', function () {
@@ -260,6 +325,12 @@
             if (!go) return;
             var summary = applyRows(st, state.kind, okRows, state.onDuplicate);
             M.syncAssignments(st);
+            var validAssignmentIds = {};
+            st.assignments.forEach(function (a) { validAssignmentIds[a.id] = true; });
+            st.timetables.forEach(function (t) {
+              if (t.status !== 'DRAFT') return;
+              t.entries = t.entries.filter(function (e) { return validAssignmentIds[e.assignmentId]; });
+            });
             global.ST.store.save();
             summary.badRows = badRows.length;
             state.lastSummary = summary;
@@ -314,16 +385,22 @@
       if (!v(0)) return fail('ไม่ได้กรอกรหัสวิชา');
       if (!v(1)) return fail('ไม่ได้กรอกชื่อวิชา');
       if (!v(3)) return fail('ไม่ได้กรอกกลุ่มสาระ');
+      if (!v(4)) return fail('ไม่ได้กรอกระดับชั้น');
       if (!findByName(st.subjectGroups, v(3)) && !autoCreate) return fail('ไม่พบกลุ่มสาระ "' + v(3) + '" ในระบบ');
-      var dm = v(5);
+      var gradeNames = v(4).split(/[,;|]+/).map(function (name) { return name.trim(); }).filter(Boolean);
+      if (gradeNames.length !== 1) return fail('หนึ่งรายวิชาใส่ได้เพียงหนึ่งระดับชั้น กรุณาแยกเป็นคนละแถว');
+      if (!findByName(st.gradeLevels, gradeNames[0]) && !autoCreate) {
+        return fail('ไม่พบระดับชั้น "' + gradeNames[0] + '" ในระบบ');
+      }
+      var dm = v(6);
       var doubleMode = dm === 'ห้ามแยก' ? 'STRICT' : (dm === 'แยกได้' ? 'PREFERRED' : 'NONE');
       if (dm && ['ไม่ใช่', 'ห้ามแยก', 'แยกได้'].indexOf(dm) === -1) {
         return fail('ช่องคาบคู่ต้องเป็น ไม่ใช่ / ห้ามแยก / แยกได้ เท่านั้น');
       }
       out.data = {
         code: v(0), name: v(1), shortName: v(2), groupName: v(3),
-        isCore: parseBool(v(4)), doubleMode: doubleMode,
-        isElective: parseBool(v(6)), isActivity: parseBool(v(7))
+        gradeName: gradeNames[0], isCore: parseBool(v(5)), doubleMode: doubleMode,
+        isElective: parseBool(v(7)), isActivity: parseBool(v(8))
       };
       return out;
     }
@@ -367,6 +444,9 @@
       }
       var subject = st.subjects.filter(function (s) { return s.code === v(2); })[0];
       if (!subject) return fail('ไม่พบวิชารหัส "' + v(2) + '" ในระบบ ให้นำเข้ารายวิชาก่อน');
+      if (!grade || !M.subjectAppliesToGrade(subject, grade.id)) {
+        return fail('วิชา "' + v(2) + '" ไม่ได้กำหนดให้ใช้กับระดับชั้น "' + v(1) + '" ให้แก้ระดับชั้นของรายวิชาก่อน');
+      }
       var periods = U.num(v(3));
       if (periods < 1) return fail('คาบต่อสัปดาห์ต้องมากกว่า 0');
       out.data = {
@@ -466,12 +546,17 @@
         return;
       }
       if (kind === 'subjects') {
-        var ex = st.subjects.filter(function (s) { return s.code === d.code; })[0];
+        var subjectGradeId = ensureGrade(d.gradeName);
+        var ex = st.subjects.filter(function (s) {
+          return s.code === d.code && s.gradeLevelId === subjectGradeId;
+        })[0];
         if (ex && onDuplicate === 'skip') { summary.skipped++; return; }
         var t = ex || { id: U.uid('sj'), createdAt: now };
         t.code = d.code; t.name = d.name;
         t.shortName = d.shortName || U.abbreviate(d.name, 10);
         t.subjectGroupId = ensureGroup(d.groupName);
+        t.gradeLevelId = subjectGradeId;
+        delete t.gradeLevelIds;
         t.isCore = d.isCore; t.doubleMode = d.doubleMode;
         t.isElective = d.isElective; t.isActivity = d.isActivity;
         t.updatedAt = now;
@@ -541,6 +626,18 @@
         a.updatedAt = now;
       }
     });
+
+    if (kind === 'subjects') {
+      var curriculumById = U.indexById(st.curricula);
+      var subjectById = U.indexById(st.subjects);
+      var before = st.curriculumItems.length;
+      st.curriculumItems = st.curriculumItems.filter(function (ci) {
+        var cur = curriculumById[ci.curriculumId];
+        var subject = subjectById[ci.subjectId];
+        return !cur || !subject || M.subjectAppliesToGrade(subject, cur.gradeLevelId);
+      });
+      summary.relatedRemoved = before - st.curriculumItems.length;
+    }
     return summary;
   }
 

@@ -162,12 +162,14 @@
 
     /* ---------- ระดับชั้น ---------- */
     var gradeId = {};
+    var gradeNoById = {};
     for (var p = 1; p <= 6; p++) {
       state.gradeLevels.push(stamp({ id: U.uid('gl'), name: 'ป.' + p, order: p }));
     }
     for (var g = 1; g <= 6; g++) {
       var grec = stamp({ id: U.uid('gl'), name: 'ม.' + g, order: g + 6 });
       gradeId[g] = grec.id;
+      gradeNoById[grec.id] = g;
       state.gradeLevels.push(grec);
     }
 
@@ -238,6 +240,7 @@
         name: def.name,
         shortName: def.short || U.abbreviate(def.name, 10),
         subjectGroupId: groupId[def.group],
+        gradeLevelId: gradeId[def.gradeNo] || '',
         isCore: !!def.core,
         doubleMode: def.double || 'NONE',
         isElective: !!def.elective,
@@ -245,7 +248,7 @@
         requiredRoomTypeId: roomTypeId[def.room || 'general'],
         color: GROUPS.filter(function (x) { return x.key === def.group; })[0].color
       });
-      subjectId[def.key] = rec.id;
+      subjectId[def.key + '|' + def.gradeNo] = rec.id;
       state.subjects.push(rec);
       return rec;
     }
@@ -253,15 +256,29 @@
     var lowerGradeDefs = {};
     [1, 2, 3].forEach(function (gn) {
       lowerGradeDefs[gn] = lowerGradeSubjects(gn);
+      lowerGradeDefs[gn].forEach(function (def) { def.gradeNo = gn; });
       lowerGradeDefs[gn].forEach(addSubject);
     });
-    LOWER_SHARED.forEach(addSubject);
+    [1, 2, 3].forEach(function (gn) {
+      LOWER_SHARED.forEach(function (def) {
+        var copy = U.deepClone(def);
+        copy.gradeNo = gn;
+        addSubject(copy);
+      });
+    });
     var upperGradeDefs = {};
     [4, 5, 6].forEach(function (gn) {
       upperGradeDefs[gn] = upperGradeSubjects(gn);
+      upperGradeDefs[gn].forEach(function (def) { def.gradeNo = gn; });
       upperGradeDefs[gn].forEach(addSubject);
     });
-    UPPER_SHARED.forEach(addSubject);
+    [4, 5, 6].forEach(function (gn) {
+      UPPER_SHARED.forEach(function (def) {
+        var copy = U.deepClone(def);
+        copy.gradeNo = gn;
+        addSubject(copy);
+      });
+    });
 
     /* ---------- ครู ---------- */
     var usedNames = {};
@@ -378,7 +395,7 @@
         state.curriculumItems.push(stamp({
           id: U.uid('ci'),
           curriculumId: cur.id,
-          subjectId: subjectId[it.key],
+          subjectId: subjectId[it.key + '|' + gradeNo],
           periodsPerWeek: it.periods
         }));
       });
@@ -501,7 +518,6 @@
       return b.periodsPerWeek - a.periodsPerWeek;
     });
 
-    var electiveSubjectId = subjectId.electiveU;
     var electiveTeacherPool = [];
     state.teachers.forEach(function (t, i) { if (i % 4 === 1) electiveTeacherPool.push(t); });
     var electiveCursor = {};
@@ -510,7 +526,7 @@
       var subject = subjectById[a.subjectId];
       var section = U.byId(state.classSections, a.classSectionId);
       var teacher;
-      if (a.subjectId === electiveSubjectId) {
+      if (subject.isElective) {
         /* วิชาเลือกเสรี: ทุกห้องในระดับชั้นเรียนพร้อมกัน จึงต้องใช้ครูคนละคน */
         var gradeKey = section.gradeLevelId;
         if (electiveCursor[gradeKey] === undefined) electiveCursor[gradeKey] = 0;
@@ -550,8 +566,9 @@
     function pinSubject(sectionName, subjectKey, day, periodNo, reason) {
       var section = sectionByName[sectionName];
       if (!section) return;
+      var gradeNo = gradeNoById[section.gradeLevelId];
       var a = state.assignments.filter(function (x) {
-        return x.classSectionId === section.id && x.subjectId === subjectId[subjectKey];
+        return x.classSectionId === section.id && x.subjectId === subjectId[subjectKey + '|' + gradeNo];
       })[0];
       if (!a) return;
       var subject = subjectById[a.subjectId];

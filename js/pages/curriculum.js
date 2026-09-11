@@ -184,9 +184,36 @@
               return { ok: false, errors: { name: 'มีหลักสูตรชื่อนี้อยู่แล้ว ให้ตั้งชื่อที่ต่างออกไป เช่น เติมชื่อห้องเรียนพิเศษต่อท้าย' } };
             }
             if (cur) {
+              var gradeChanged = cur.gradeLevelId !== v.gradeLevelId;
               cur.name = name; cur.gradeLevelId = v.gradeLevelId; cur.note = v.note || '';
               cur.updatedAt = new Date().toISOString();
-              app.saveAndRefresh('แก้ไขหลักสูตรแล้ว');
+              var removedItems = 0, detachedSections = 0;
+              if (gradeChanged) {
+                var beforeItems = st.curriculumItems.length;
+                st.curriculumItems = st.curriculumItems.filter(function (ci) {
+                  if (ci.curriculumId !== cur.id) return true;
+                  return M.subjectAppliesToGrade(U.byId(st.subjects, ci.subjectId), cur.gradeLevelId);
+                });
+                removedItems = beforeItems - st.curriculumItems.length;
+                st.classSections.forEach(function (section) {
+                  if (section.curriculumId === cur.id && section.gradeLevelId !== cur.gradeLevelId) {
+                    section.curriculumId = '';
+                    detachedSections++;
+                  }
+                });
+                M.syncAssignments(st);
+                var validAssignmentIds = {};
+                st.assignments.forEach(function (a) { validAssignmentIds[a.id] = true; });
+                st.timetables.forEach(function (t) {
+                  if (t.status !== 'DRAFT') return;
+                  t.entries = t.entries.filter(function (e) { return validAssignmentIds[e.assignmentId]; });
+                });
+              }
+              var updateMessage = 'แก้ไขหลักสูตรแล้ว';
+              if (removedItems || detachedSections) {
+                updateMessage += ' · ปรับข้อมูลที่ไม่ตรงระดับชั้น ' + (removedItems + detachedSections) + ' รายการ';
+              }
+              app.saveAndRefresh(updateMessage);
             } else {
               var rec = {
                 id: U.uid('cu'), name: name, gradeLevelId: v.gradeLevelId, note: v.note || '',
@@ -281,6 +308,7 @@
           st.subjectGroups.forEach(function (grp) {
             var list = st.subjects.filter(function (s) {
               if (s.subjectGroupId !== grp.id) return false;
+              if (!M.subjectAppliesToGrade(s, cur.gradeLevelId)) return false;
               if (only && !(map[s.id] > 0)) return false;
               if (term && (s.code + ' ' + s.name).toLowerCase().indexOf(term) === -1) return false;
               return true;
@@ -556,10 +584,12 @@
             var refs = st.classSections.filter(function (s) { return s.gradeLevelId === g.id; })
               .map(function (s) { return 'ชั้นเรียน ' + s.name; })
               .concat(st.curricula.filter(function (c) { return c.gradeLevelId === g.id; })
-                .map(function (c) { return 'หลักสูตร ' + c.name; }));
+                .map(function (c) { return 'หลักสูตร ' + c.name; }))
+              .concat(st.subjects.filter(function (s) { return s.gradeLevelId === g.id; })
+                .map(function (s) { return 'รายวิชา ' + s.code + ' ' + s.name; }));
             UI.deleteWithGuard({
               what: 'ระดับชั้น', name: g.name, references: refs,
-              fix: 'ให้ลบหรือย้ายชั้นเรียนและหลักสูตรของระดับชั้นนี้ก่อน'
+              fix: 'ให้ลบหรือย้ายชั้นเรียน หลักสูตร และรายวิชาของระดับชั้นนี้ก่อน'
             }).then(function (ok) {
               if (!ok) return;
               st.gradeLevels = st.gradeLevels.filter(function (x) { return x.id !== g.id; });

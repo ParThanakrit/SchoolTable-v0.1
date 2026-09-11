@@ -12,7 +12,7 @@
     --primary-light: #1b304c; --primary-line: #4c6d99; --on-primary: #102542;
     --muted: #a7b4c6;
   }
-  body { font-family: "Leelawadee UI", Tahoma, "Noto Sans Thai", sans-serif; font-size: 15px; line-height: 1.6; background: var(--bg); }
+  body { font-family: var(--font-ui); font-size: 15px; line-height: 1.6; background: var(--bg); }
   .content { max-width: none; padding: 28px 32px 40px; }
   .sidebar__brand-name { font-size: 21px; color: var(--primary); letter-spacing: -.5px; }
   .sidebar__brand-sub, .nav-group__label { font-size: 12px; }

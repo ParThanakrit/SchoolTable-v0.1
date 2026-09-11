@@ -347,10 +347,13 @@
       var wlTerm = '';
       var wlHost = null;
       function workloadCard() {
-        var node = U.elFromHTML('<div class="card"><div class="card__title">ภาระงานครู</div>' +
-          '<div class="card__desc">อัปเดตทันทีที่เลือกครู · แถบสีแดงคือเกินโควตาคาบต่อสัปดาห์</div>' +
-          '<input type="search" class="input mb-8" id="wlSearch" placeholder="ค้นหาชื่อครู…" value="' + U.esc(wlTerm) + '">' +
-          '<div class="scroll-y" id="wlList"></div></div>');
+        var node = U.elFromHTML('<div class="card teacher-workload-card"><div class="teacher-workload-head"><div>' +
+          '<div class="card__title">ภาระงานครู</div><div class="card__desc">เรียงครูที่ใกล้เต็มหรือเกินโควตาไว้ด้านบน</div></div>' +
+          '<span class="badge badge--muted">' + U.fmtNum(st.teachers.length) + ' คน</span></div>' +
+          '<label class="teacher-workload-search"><span aria-hidden="true">⌕</span>' +
+          '<input type="search" class="input" id="wlSearch" placeholder="ค้นหาชื่อ ชื่อย่อ หรือกลุ่มสาระ…" value="' + U.esc(wlTerm) + '"></label>' +
+          '<div class="teacher-workload-legend"><span><i class="is-free"></i>ยังว่าง</span><span><i class="is-near"></i>ใกล้เต็ม</span>' +
+          '<span><i class="is-over"></i>เกินโควตา</span></div><div class="scroll-y teacher-workload-list" id="wlList"></div></div>');
         wlHost = node.querySelector('#wlList');
         var search = node.querySelector('#wlSearch');
         search.addEventListener('input', function (ev) { wlTerm = ev.target.value; refreshWorkload(); });
@@ -363,16 +366,36 @@
         var loadNow = M.teacherAssignedLoad(st);
         var term = wlTerm.trim().toLowerCase();
         var list = st.teachers.filter(function (t) {
-          return !term || t.name.toLowerCase().indexOf(term) !== -1;
+          var group = U.byId(st.subjectGroups, t.subjectGroupId);
+          return !term || (t.name + ' ' + (t.shortName || '') + ' ' + (group ? group.name : '')).toLowerCase().indexOf(term) !== -1;
         }).sort(function (a, b) {
-          return ((loadNow[b.id] || 0) - U.num(b.maxPeriodsPerWeek)) -
-            ((loadNow[a.id] || 0) - U.num(a.maxPeriodsPerWeek));
+          var ar = U.num(a.maxPeriodsPerWeek) ? (loadNow[a.id] || 0) / U.num(a.maxPeriodsPerWeek) : 0;
+          var br = U.num(b.maxPeriodsPerWeek) ? (loadNow[b.id] || 0) / U.num(b.maxPeriodsPerWeek) : 0;
+          return br - ar || String(a.name).localeCompare(String(b.name), 'th');
         });
-        wlHost.innerHTML = '<table class="data"><tbody>' + list.slice(0, 200).map(function (t) {
-          return '<tr><td>' + U.esc(t.name) + '<div class="small muted">' +
-            UI.dayChips(t.availableDays, st.periodConfig.days) + '</div></td>' +
-            '<td>' + UI.workloadBar(loadNow[t.id] || 0, U.num(t.maxPeriodsPerWeek)) + '</td></tr>';
-        }).join('') + '</tbody></table>';
+        if (!list.length) {
+          wlHost.innerHTML = '<div class="teacher-workload-empty">ไม่พบครูที่ตรงกับคำค้น</div>';
+          return;
+        }
+        wlHost.innerHTML = list.slice(0, 200).map(function (t) {
+          var used = loadNow[t.id] || 0;
+          var quota = U.num(t.maxPeriodsPerWeek);
+          var pct = quota ? Math.round(used / quota * 100) : 0;
+          var status = used > quota ? 'over' : (pct >= 85 ? 'near' : 'free');
+          var statusText = used > quota ? 'เกิน ' + U.fmtNum(used - quota) + ' คาบ' :
+            (status === 'near' ? 'ใกล้เต็ม' : 'เหลือ ' + U.fmtNum(Math.max(0, quota - used)) + ' คาบ');
+          var group = U.byId(st.subjectGroups, t.subjectGroupId);
+          var parts = String(t.name || '').trim().split(/\s+/);
+          var initials = parts.slice(0, 2).map(function (part) { return part.charAt(0); }).join('') || 'ค';
+          return '<article class="teacher-workload-row is-' + status + '"><span class="teacher-workload-avatar" aria-hidden="true">' +
+            U.esc(initials) + '</span><div class="teacher-workload-info"><div class="teacher-workload-name"><strong>' +
+            U.esc(t.name) + '</strong><span>' + U.esc(group ? group.name : 'ไม่ระบุกลุ่มสาระ') + '</span></div>' +
+            '<div class="teacher-workload-meta"><span class="teacher-workload-days"><b>มาสอน</b>' +
+            UI.dayChips(t.availableDays, st.periodConfig.days) + '</span><span>สูงสุด ' + U.fmtNum(t.maxPeriodsPerDay) + ' คาบ/วัน</span></div></div>' +
+            '<div class="teacher-workload-meter"><div><b>' + U.fmtNum(used) + '<small> / ' + U.fmtNum(quota) + ' คาบ</small></b>' +
+            '<span class="teacher-workload-status">' + statusText + '</span></div><span class="teacher-workload-track"><i style="width:' +
+            Math.min(100, Math.max(0, pct)) + '%"></i></span></div></article>';
+        }).join('');
       }
 
       paintSectionList();

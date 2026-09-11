@@ -153,6 +153,8 @@
       var parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object' || !parsed.periodConfig) throw new Error('bad');
       state = mergeDefaults(parsed);
+      /* บันทึกโครงสร้างที่แปลงแล้วทันที เพื่อไม่ต้องแยกรายวิชาซ้ำทุกครั้งที่เปิดหน้าเว็บ */
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (saveError) { /* ยังใช้งานข้อมูลในหน่วยความจำต่อได้ */ }
       return true;
     } catch (err) {
       U.explainDialog({
@@ -222,6 +224,78 @@
       });
     }
     delete data.curriculumOverrides;
+
+    /* รายวิชาหนึ่งรายการต้องอยู่เพียงหนึ่งระดับชั้น
+       ข้อมูลรุ่นเดิมที่ใช้วิชาเดียวร่วมหลายชั้นจะถูกแยกเป็นคนละรายการ และย้ายการอ้างอิงให้ตรงชั้น */
+    var validGradeIds = {};
+    var gradeOrder = {};
+    data.gradeLevels.forEach(function (g) {
+      validGradeIds[g.id] = true;
+      gradeOrder[g.id] = U.num(g.order);
+    });
+    var curriculumGrade = {};
+    data.curricula.forEach(function (c) { curriculumGrade[c.id] = c.gradeLevelId; });
+    var gradesBySubject = {};
+    data.curriculumItems.forEach(function (ci) {
+      var gradeId = curriculumGrade[ci.curriculumId];
+      if (!gradeId || !validGradeIds[gradeId]) return;
+      if (!gradesBySubject[ci.subjectId]) gradesBySubject[ci.subjectId] = [];
+      if (gradesBySubject[ci.subjectId].indexOf(gradeId) === -1) gradesBySubject[ci.subjectId].push(gradeId);
+    });
+    var subjectGradeMap = {};
+    var migratedSubjects = [];
+    data.subjects.slice().forEach(function (s) {
+      var originalId = s.id;
+      var ids = Array.isArray(s.gradeLevelIds) ? s.gradeLevelIds.slice() : [];
+      if (s.gradeLevelId) ids.push(s.gradeLevelId);
+      (gradesBySubject[s.id] || []).forEach(function (id) { ids.push(id); });
+      var seen = {};
+      ids = ids.filter(function (id) {
+        if (!validGradeIds[id] || seen[id]) return false;
+        seen[id] = true;
+        return true;
+      }).sort(function (a, b) { return gradeOrder[a] - gradeOrder[b]; });
+
+      if (!ids.length) {
+        s.gradeLevelId = '';
+        delete s.gradeLevelIds;
+        migratedSubjects.push(s);
+        subjectGradeMap[originalId] = {};
+        return;
+      }
+
+      subjectGradeMap[originalId] = {};
+      ids.forEach(function (gradeId, index) {
+        var target = index === 0 ? s : U.deepClone(s);
+        if (index > 0) target.id = U.uid('sj');
+        target.gradeLevelId = gradeId;
+        delete target.gradeLevelIds;
+        subjectGradeMap[originalId][gradeId] = target.id;
+        migratedSubjects.push(target);
+      });
+    });
+    data.subjects = migratedSubjects;
+
+    data.curriculumItems.forEach(function (ci) {
+      var map = subjectGradeMap[ci.subjectId];
+      var gradeId = curriculumGrade[ci.curriculumId];
+      if (map && map[gradeId]) ci.subjectId = map[gradeId];
+    });
+
+    var sectionGrade = {};
+    data.classSections.forEach(function (section) { sectionGrade[section.id] = section.gradeLevelId; });
+    data.assignments.forEach(function (assignment) {
+      var map = subjectGradeMap[assignment.subjectId];
+      var gradeId = sectionGrade[assignment.classSectionId];
+      if (map && map[gradeId]) assignment.subjectId = map[gradeId];
+    });
+    var assignmentById = {};
+    data.assignments.forEach(function (assignment) { assignmentById[assignment.id] = assignment; });
+    data.lockedSlots.forEach(function (lock) {
+      if (lock.kind !== 'SUBJECT') return;
+      var assignment = assignmentById[lock.assignmentId];
+      if (assignment) lock.subjectId = assignment.subjectId;
+    });
 
     data.rooms.forEach(function (r) { if (r.floor === undefined) r.floor = 1; });
     data.lockedSlots.forEach(function (l) { if (!l.kind) l.kind = 'BLOCK'; });

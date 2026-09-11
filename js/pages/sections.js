@@ -55,15 +55,33 @@
       });
       var activeGrades = grades.filter(function (g) { return !!sectionCountByGrade[g.id]; });
       root.appendChild(U.elFromHTML(
-        '<div class="statstrip">' +
-        '<div class="statstrip__item"><span class="statstrip__num">' + U.fmtNum(st.classSections.length) +
-        '</span><span class="statstrip__label">ชั้นเรียนทั้งหมด</span></div>' +
-        '<div class="statstrip__item"><span class="statstrip__num">' + U.fmtNum(grades.length) +
-        '</span><span class="statstrip__label">ระดับชั้น</span></div>' +
-        '<div class="statstrip__item' + (noCurriculum ? ' is-warn' : '') + '"><span class="statstrip__num">' +
-        U.fmtNum(noCurriculum) + '</span><span class="statstrip__label">ห้องที่ยังไม่ได้เลือกหลักสูตร</span></div>' +
-        '<div class="statstrip__item' + (noRoom ? ' is-warn' : '') + '"><span class="statstrip__num">' +
-        U.fmtNum(noRoom) + '</span><span class="statstrip__label">ห้องที่ยังไม่มีห้องประจำ</span></div>' +
+        '<div class="statstrip section-summary" aria-label="สรุปข้อมูลชั้นเรียน">' +
+        '<article class="statstrip__item section-summary__item section-summary__item--classes">' +
+        '<span class="section-summary__icon" aria-hidden="true">' + global.ST.ux.icon('grid') + '</span>' +
+        '<div class="section-summary__content"><span class="section-summary__eyebrow">ข้อมูลทั้งหมด</span>' +
+        '<span class="statstrip__label">ชั้นเรียนในระบบ</span>' +
+        '<span class="statstrip__num">' + U.fmtNum(st.classSections.length) + ' <small>ห้อง</small></span>' +
+        '<span class="section-summary__detail">พร้อมสำหรับจัดหลักสูตรและครูผู้สอน</span></div></article>' +
+        '<article class="statstrip__item section-summary__item section-summary__item--grades">' +
+        '<span class="section-summary__icon" aria-hidden="true">' + global.ST.ux.icon('layers') + '</span>' +
+        '<div class="section-summary__content"><span class="section-summary__eyebrow">การจัดกลุ่ม</span>' +
+        '<span class="statstrip__label">ระดับชั้นที่มีห้องเรียน</span>' +
+        '<span class="statstrip__num">' + U.fmtNum(activeGrades.length) + ' <small>ระดับ</small></span>' +
+        '<span class="section-summary__detail">นับเฉพาะระดับชั้นที่ใช้งานจริง</span></div></article>' +
+        '<article class="statstrip__item section-summary__item section-summary__item--issue' + (noCurriculum ? ' is-warn' : ' is-ready') + '">' +
+        '<span class="section-summary__icon" aria-hidden="true">' + global.ST.ux.icon(noCurriculum ? 'warning' : 'check') + '</span>' +
+        '<div class="section-summary__content"><span class="section-summary__eyebrow">' + (noCurriculum ? 'ต้องตั้งค่า' : 'พร้อมใช้งาน') + '</span>' +
+        '<span class="statstrip__label">การเลือกหลักสูตร</span>' +
+        '<span class="statstrip__num">' + (noCurriculum ? U.fmtNum(noCurriculum) + ' <small>ห้องที่ยังไม่เลือก</small>' : '<span class="section-summary__complete">ครบทุกห้อง</span>') + '</span>' +
+        '<span class="section-summary__detail">' +
+        (noCurriculum ? 'เลือกหลักสูตรก่อนจัดครูและตาราง' : 'เลือกหลักสูตรครบทุกห้องแล้ว') + '</span></div></article>' +
+        '<article class="statstrip__item section-summary__item section-summary__item--issue' + (noRoom ? ' is-warn' : ' is-ready') + '">' +
+        '<span class="section-summary__icon" aria-hidden="true">' + global.ST.ux.icon(noRoom ? 'warning' : 'check') + '</span>' +
+        '<div class="section-summary__content"><span class="section-summary__eyebrow">' + (noRoom ? 'ต้องตั้งค่า' : 'พร้อมใช้งาน') + '</span>' +
+        '<span class="statstrip__label">การกำหนดห้องประจำ</span>' +
+        '<span class="statstrip__num">' + (noRoom ? U.fmtNum(noRoom) + ' <small>ห้องที่ยังไม่กำหนด</small>' : '<span class="section-summary__complete">ครบทุกห้อง</span>') + '</span>' +
+        '<span class="section-summary__detail">' +
+        (noRoom ? 'กำหนดห้องประจำเพื่อจัดสถานที่สอน' : 'กำหนดห้องประจำครบทุกห้องแล้ว') + '</span></div></article>' +
         '</div>'));
 
       /* ---------- ตัวกรองระดับชั้น ---------- */
@@ -100,15 +118,18 @@
         return d !== 0 ? d : String(a.name).localeCompare(String(b.name), 'th', { numeric: true });
       });
 
+      /* ใช้เงื่อนไขค้นหาชุดเดียวกันทั้งตารางและตัวนับผลลัพธ์ จะได้ไม่หลุดจากกัน */
+      function matchesTerm(s, term) {
+        var room = U.byId(st.rooms, s.homeRoomId);
+        var cur = U.byId(st.curricula, s.curriculumId);
+        return (s.name + ' ' + (s.note || '') + ' ' + (room ? room.name : '') + ' ' +
+          (cur ? cur.name : '')).toLowerCase().indexOf(term) !== -1;
+      }
+
       var table = UI.dataTable({
         rows: rows,
         searchPlaceholder: 'ค้นหาชื่อชั้นเรียน ห้องประจำ หรือหลักสูตร…',
-        filter: function (s, term) {
-          var room = U.byId(st.rooms, s.homeRoomId);
-          var cur = U.byId(st.curricula, s.curriculumId);
-          return (s.name + ' ' + (s.note || '') + ' ' + (room ? room.name : '') + ' ' +
-            (cur ? cur.name : '')).toLowerCase().indexOf(term) !== -1;
-        },
+        filter: matchesTerm,
         extraFilter: function (s) { return !gradeFilter || s.gradeLevelId === gradeFilter; },
         columns: [
           {
@@ -219,24 +240,61 @@
         gradeFilter = chip.dataset.g;
         U.qsa('.chip', filterBar).forEach(function (c) { c.classList.toggle('is-on', c === chip); });
         table.refresh();
+        updateFilterState();
       });
 
       var card = U.elFromHTML('<div class="card"></div>');
       var filterPanel = U.elFromHTML('<section class="section-filter-panel no-print" aria-label="ค้นหาและกรองชั้นเรียน">' +
         '<div class="section-filter-panel__head"><span class="section-filter-panel__icon" aria-hidden="true">' + global.ST.ux.icon('sliders') + '</span>' +
         '<div><b>ค้นหาและกรองชั้นเรียน</b><div class="small muted">เลือกชั้นที่ต้องการ หรือค้นหาจากชื่อห้อง ห้องประจำ และหลักสูตร</div></div>' +
-        '<span class="section-filter-panel__total"><b>' + U.fmtNum(st.classSections.length) + '</b> ห้องเรียน</span></div>' +
+        '<span class="section-filter-panel__total" data-filter-count aria-live="polite"><b>' +
+        U.fmtNum(st.classSections.length) + '</b> ห้องเรียน</span></div>' +
         '<div class="section-filter-panel__controls"><div class="section-filter-field section-filter-field--grades">' +
         '<span class="section-filter-field__label">ระดับชั้น</span><div data-filter-chips></div></div>' +
         '<div class="section-filter-field section-filter-field--search"><span class="section-filter-field__label">ค้นหาชั้นเรียน</span>' +
+        '<div class="section-filter-searchrow">' +
         '<div class="section-filter-search"><span aria-hidden="true">' + global.ST.ux.icon('search') + '</span><div data-filter-search></div></div>' +
-        '</div></div></section>');
+        '<button type="button" class="btn btn--sm section-filter-reset" data-filter-reset hidden>✕ ล้างตัวกรอง</button>' +
+        '</div></div></div></section>');
       filterPanel.querySelector('[data-filter-chips]').appendChild(filterBar);
       var tableTools = table.querySelector('.table-tools');
       if (tableTools) filterPanel.querySelector('[data-filter-search]').appendChild(tableTools);
       card.appendChild(filterPanel);
       card.appendChild(table);
       root.appendChild(card);
+
+      /* ---------- ตัวนับผลลัพธ์และปุ่มล้างตัวกรอง ---------- */
+      var searchInput = filterPanel.querySelector('[data-filter-search] input');
+      var countEl = filterPanel.querySelector('[data-filter-count]');
+      var resetBtn = filterPanel.querySelector('[data-filter-reset]');
+
+      /* บอกจำนวนห้องที่ตรงตัวกรองตอนนี้ เพื่อให้รู้ทันทีว่ากรองแล้วเหลือเท่าไร */
+      function updateFilterState() {
+        var term = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        var active = !!gradeFilter || !!term;
+        var shown = rows.filter(function (s) {
+          if (gradeFilter && s.gradeLevelId !== gradeFilter) return false;
+          return !term || matchesTerm(s, term);
+        }).length;
+        countEl.innerHTML = active
+          ? '<b>' + U.fmtNum(shown) + '</b> จาก ' + U.fmtNum(rows.length) + ' ห้องเรียน'
+          : '<b>' + U.fmtNum(rows.length) + '</b> ห้องเรียน';
+        countEl.classList.toggle('is-filtered', active);
+        if (resetBtn) resetBtn.hidden = !active;
+      }
+
+      if (searchInput) searchInput.addEventListener('input', updateFilterState);
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+          gradeFilter = '';
+          if (searchInput) searchInput.value = '';
+          U.qsa('.chip', filterBar).forEach(function (c) { c.classList.toggle('is-on', c.dataset.g === ''); });
+          table.refresh();
+          updateFilterState();
+          if (searchInput) searchInput.focus();
+        });
+      }
+      updateFilterState();
 
       function roomOptions() {
         return [{ value: '', label: 'ไม่ระบุห้องประจำ' }].concat(st.rooms.map(function (r) {

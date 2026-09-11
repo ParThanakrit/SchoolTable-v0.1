@@ -63,19 +63,26 @@
   }
 
   /* ---------- ฟอร์มในหน้าต่างซ้อน ---------- */
-  /* fields: [{name,label,type,options,hint,required,min,max,rows,width}] */
+  /* fields: [{name,label,type,options,hint,required,min,max,rows,width}]
+     type "checks" ใช้เมื่อต้องเลือกได้หลายค่า เช่น ระดับชั้นของรายวิชา */
   function formModal(opts) {
     var values = U.deepClone(opts.values || {});
     var form = document.createElement('div');
-    form.className = 'form-grid';
+    form.className = 'form-grid' + (opts.formClass ? ' ' + opts.formClass : '');
 
     opts.fields.forEach(function (f) {
+      if (f.type === 'section') {
+        form.appendChild(U.elFromHTML('<div class="form-section-title' + (f.className ? ' ' + f.className : '') + '">' +
+          (f.icon ? '<span class="form-section-title__icon" aria-hidden="true">' + U.esc(f.icon) + '</span>' : '') +
+          '<div><b>' + U.esc(f.label) + '</b>' + (f.hint ? '<span>' + U.esc(f.hint) + '</span>' : '') + '</div></div>'));
+        return;
+      }
       if (f.type === 'note') {
         form.appendChild(U.elFromHTML('<div class="field small muted">' + f.label + '</div>'));
         return;
       }
       var wrap = document.createElement('div');
-      wrap.className = 'field' + (f.required ? ' field--required' : '');
+      wrap.className = 'field' + (f.required ? ' field--required' : '') + (f.className ? ' ' + f.className : '');
       wrap.dataset.name = f.name;
       var id = 'f_' + f.name;
       var labelHtml = '<label class="field__label' + (f.required ? ' field__label--required' : '') + '" for="' + id + '">' + U.esc(f.label) +
@@ -90,6 +97,14 @@
               (String(o.value) === String(val === undefined ? '' : val) ? ' selected' : '') + '>' +
               U.esc(o.label) + '</option>';
           }).join('') + '</select>';
+      } else if (f.type === 'checks') {
+        var checked = Array.isArray(val) ? val.map(String) : [];
+        control = '<div class="checkset" id="' + id + '">' +
+          (f.options || []).map(function (o) {
+            var value = String(o.value);
+            return '<label class="checkset__item"><input type="checkbox" value="' + U.esc(value) + '"' +
+              (checked.indexOf(value) !== -1 ? ' checked' : '') + '><span>' + U.esc(o.label) + '</span></label>';
+          }).join('') + '</div>';
       } else if (f.type === 'checkbox') {
         control = '<div class="checkline"><input type="checkbox" id="' + id + '"' + (val ? ' checked' : '') +
           '><label for="' + id + '">' + U.esc(f.checkLabel || f.label) + '</label></div>';
@@ -113,6 +128,7 @@
       } else {
         control = '<input type="text" class="input" id="' + id + '" value="' + U.esc(val === undefined ? '' : val) + '">';
       }
+      if (f.suffix) control = '<div class="input-affix">' + control + '<span>' + U.esc(f.suffix) + '</span></div>';
       wrap.innerHTML = labelHtml + control + (f.hint ? '<div class="field__hint">' + U.esc(f.hint) + '</div>' : '');
       form.appendChild(wrap);
     });
@@ -121,13 +137,29 @@
       chip.classList.toggle('is-on', chip.querySelector('input').checked);
     });
 
+    function clearFieldError(target) {
+      var wrap = target.closest && target.closest('.field');
+      if (!wrap) return;
+      var invalid = wrap.querySelector('.input--invalid');
+      if (invalid) invalid.classList.remove('input--invalid');
+      var error = wrap.querySelector('.field__error');
+      if (error) error.remove();
+    }
+    form.addEventListener('input', function (ev) { clearFieldError(ev.target); });
+    form.addEventListener('change', function (ev) { clearFieldError(ev.target); });
+
     function readValues() {
       var out = U.deepClone(values);
       opts.fields.forEach(function (f) {
-        if (f.type === 'note') return;
+        if (f.type === 'note' || f.type === 'section') return;
         var el = form.querySelector('#f_' + f.name);
         if (!el) return;
         if (f.type === 'checkbox') out[f.name] = el.checked;
+        else if (f.type === 'checks') {
+          out[f.name] = U.qsa('input[type="checkbox"]', el).filter(function (input) {
+            return input.checked;
+          }).map(function (input) { return input.value; });
+        }
         else if (f.type === 'days') {
           out[f.name] = U.qsa('.chip', el).filter(function (c) {
             return c.querySelector('input').checked;
@@ -144,7 +176,7 @@
       Object.keys(errors || {}).forEach(function (name) {
         var wrap = form.querySelector('.field[data-name="' + name + '"]');
         if (!wrap) return;
-        var input = wrap.querySelector('.input, .select, .textarea');
+        var input = wrap.querySelector('.input, .select, .textarea, .checkset');
         if (input) input.classList.add('input--invalid');
         wrap.appendChild(U.elFromHTML('<div class="field__error">' + U.esc(errors[name]) + '</div>'));
       });

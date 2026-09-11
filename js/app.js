@@ -213,6 +213,32 @@
     else if (mq.addListener) mq.addListener(onChange);
   }
 
+  /* ---------- ขนาดหน้าการทำงาน: เล็ก · กลาง · ใหญ่ ---------- */
+  var UI_SIZE_KEY = 'schooltable.uiSize';
+  var UI_SIZE_META = {
+    small: { label: 'เล็ก' },
+    medium: { label: 'กลาง' },
+    large: { label: 'ใหญ่' }
+  };
+
+  function uiSizePref() {
+    var value = 'medium';
+    try { value = localStorage.getItem(UI_SIZE_KEY) || 'medium'; } catch (e) { /* ใช้ค่ากลาง */ }
+    return UI_SIZE_META[value] ? value : 'medium';
+  }
+
+  function applyUiSize(value, announce) {
+    if (!UI_SIZE_META[value]) value = 'medium';
+    document.documentElement.setAttribute('data-ui-size', value);
+    U.qsa('.ui-scale-btn').forEach(function (btn) {
+      var active = btn.dataset.uiSize === value;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    try { localStorage.setItem(UI_SIZE_KEY, value); } catch (e) { /* ยังใช้ค่าในรอบนี้ได้ */ }
+    if (announce) U.toast('ปรับขนาดหน้าการทำงานเป็น “' + UI_SIZE_META[value].label + '” แล้ว', 'info', 2200);
+  }
+
   function boot() {
     var loaded = store.load();
     if (!loaded) {
@@ -222,6 +248,7 @@
     store.save();
 
     applyTheme();
+    applyUiSize(uiSizePref(), false);
     watchSystemTheme();
     try { document.body.classList.toggle('sidebar-collapsed', localStorage.getItem('schooltable.sidebarCollapsed') === 'true'); } catch (e) { }
     U.qs('#btnMenu').innerHTML = global.ST.ux.icon('menu');
@@ -247,6 +274,9 @@
       }
     });
     U.qs('#btnTheme').addEventListener('click', cycleTheme);
+    U.on(document, 'click', '.ui-scale-btn', function (ev, btn) {
+      applyUiSize(btn.dataset.uiSize, true);
+    });
     U.qs('#btnTopPrint').addEventListener('click', function () { go('print'); });
     U.qs('#btnTopBackup').addEventListener('click', function () {
       store.exportBackup();

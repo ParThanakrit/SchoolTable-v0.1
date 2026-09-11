@@ -696,23 +696,23 @@
         var section = U.byId(st.classSections, a.classSectionId);
 
         var body = document.createElement('div');
-        body.innerHTML = '<table class="data"><tbody>' +
-          '<tr><th style="width:150px">ชั้นเรียน</th><td>' + U.esc(section ? section.name : '-') + '</td></tr>' +
-          '<tr><th>วิชา</th><td>' + U.esc(subject.code + ' ' + subject.name) + '</td></tr>' +
-          '<tr><th>เวลา</th><td>วัน' + U.DAY_NAMES[e.day] + ' คาบ ' + e.periodNo + '</td></tr>' +
-          '</tbody></table>' +
-          '<div class="field mt-16"><label class="field__label" for="edTeacher">ครูผู้สอนของคาบนี้</label>' +
+        body.className = 'entry-detail';
+        body.innerHTML = '<div class="entry-detail__summary"><span class="entry-detail__code">รายวิชา · ' + U.esc(subject.code) + '</span>' +
+          '<h3 class="entry-detail__subject">' + U.esc(subject.name) + '</h3>' +
+          '<div class="entry-detail__facts"><span>ชั้นเรียน <b>' + U.esc(section ? section.name : '-') + '</b></span>' +
+          '<span>วัน' + U.DAY_NAMES[e.day] + ' <b>คาบ ' + e.periodNo + '</b></span></div></div>' +
+          '<div class="entry-detail__fields"><div class="field"><label class="field__label" for="edTeacher">ครูผู้สอน</label>' +
           '<select class="select" id="edTeacher">' + U.sortThai(st.teachers, function (t) { return t.name; })
             .map(function (t) {
               return '<option value="' + t.id + '"' + (t.id === a.teacherId ? ' selected' : '') + '>' + U.esc(t.name) + '</option>';
             }).join('') + '</select>' +
-          '<div class="field__hint">การเปลี่ยนครูจะมีผลกับทุกคาบของวิชานี้ในชั้นเรียนนี้</div></div>' +
+          '<div class="entry-detail__notice"><b>มีผลกับทุกคาบ</b><span>เมื่อเปลี่ยนครู ทุกคาบของวิชานี้ในชั้นเรียนนี้จะใช้ครูคนใหม่</span></div></div>' +
           '<div class="field"><label class="field__label" for="edRoom">ห้องที่ใช้</label>' +
           '<select class="select" id="edRoom">' + st.rooms.map(function (r) {
             return '<option value="' + r.id + '"' + (r.id === e.roomId ? ' selected' : '') + '>' + U.esc(r.name) + '</option>';
-          }).join('') + '</select></div>' +
-          '<div class="checkline"><input type="checkbox" id="edLock"' + (e.isLocked ? ' checked' : '') + '>' +
-          '<label for="edLock">ล็อกคาบนี้ไว้ ไม่ให้ถูกเปลี่ยนในการจัดรอบถัดไป</label></div>';
+          }).join('') + '</select></div></div>' +
+          '<label class="entry-detail__lock" for="edLock"><input type="checkbox" id="edLock"' + (e.isLocked ? ' checked' : '') + '>' +
+          '<span><b>ล็อกคาบนี้ไว้</b><span>คงตำแหน่งเดิมเมื่อจัดตารางครั้งถัดไป</span></span></label>';
 
         U.openModal({
           title: 'รายละเอียดคาบเรียน',

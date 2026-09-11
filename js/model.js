@@ -61,6 +61,14 @@
     return p ? p.startTime + '–' + p.endTime : '';
   }
 
+  /* รายวิชาหนึ่งรายการอยู่ได้เพียงหนึ่งระดับชั้น */
+  function subjectAppliesToGrade(subject, gradeLevelId) {
+    if (!subject || !gradeLevelId) return false;
+    if (subject.gradeLevelId) return subject.gradeLevelId === gradeLevelId;
+    /* รองรับข้อมูลสำรองรุ่นเก่าระหว่างที่ store กำลังแปลงข้อมูล */
+    return Array.isArray(subject.gradeLevelIds) && subject.gradeLevelIds.indexOf(gradeLevelId) !== -1;
+  }
+
   /* ---------- หลักสูตร (ชุดหลักสูตรที่เลือกห้องเองได้) ---------- */
   function curriculumItemsOf(state, curriculumId) {
     return state.curriculumItems.filter(function (ci) { return ci.curriculumId === curriculumId; });
@@ -80,7 +88,10 @@
     var section = U.byId(state.classSections, sectionId);
     if (!section || !section.curriculumId) return [];
     return curriculumItemsOf(state, section.curriculumId)
-      .filter(function (ci) { return U.num(ci.periodsPerWeek) > 0; })
+      .filter(function (ci) {
+        var subject = U.byId(state.subjects, ci.subjectId);
+        return U.num(ci.periodsPerWeek) > 0 && subjectAppliesToGrade(subject, section.gradeLevelId);
+      })
       .map(function (ci) {
         return { subjectId: ci.subjectId, periodsPerWeek: U.num(ci.periodsPerWeek) };
       });
@@ -242,6 +253,7 @@
     steps.push({
       key: 'curriculum', label: 'สร้างหลักสูตรและเลือกห้องที่ใช้', page: 'curriculum',
       done: state.classSections.length > 0 && withCurriculum === state.classSections.length,
+      progress: { done: withCurriculum, total: state.classSections.length, unit: 'ห้อง' },
       detail: state.curricula.length
         ? ('มีหลักสูตร ' + U.fmtNum(state.curricula.length) + ' ชุด · ใช้ครบ ' +
           U.fmtNum(withCurriculum) + ' จาก ' + U.fmtNum(state.classSections.length) + ' ห้อง') : '',
@@ -255,6 +267,7 @@
     steps.push({
       key: 'assignments', label: 'จัดครูผู้สอน', page: 'assignments',
       done: total > 0 && done === total,
+      progress: { done: done, total: total, unit: 'รายการ' },
       detail: total ? ('จัดครูแล้ว ' + U.fmtNum(done) + ' จาก ' + U.fmtNum(total) + ' รายการ') : '',
       missing: total === 0 ? 'ยังไม่มีรายการที่ต้องจัดครู เพราะยังไม่มีหลักสูตรหรือชั้นเรียน'
         : (done < total ? ('ยังไม่ได้เลือกครูผู้สอนอีก ' + U.fmtNum(total - done) + ' รายการ') : '')
@@ -468,6 +481,7 @@
     slotsPerWeek: slotsPerWeek,
     adjacentPairs: adjacentPairs,
     timeLabel: timeLabel,
+    subjectAppliesToGrade: subjectAppliesToGrade,
     curriculumItemsOf: curriculumItemsOf,
     sectionsOfCurriculum: sectionsOfCurriculum,
     curriculumTotal: curriculumTotal,
